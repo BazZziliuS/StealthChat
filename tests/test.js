@@ -53,7 +53,7 @@ async function runTests() {
   console.log('\n=== StealthChat Tests ===\n');
 
   // --- Wordlist validation for all languages ---
-  const languages = ['en', 'ru', 'uk', 'de'];
+  const languages = ['en', 'ru', 'uk', 'de', 'be', 'fa', 'kk'];
 
   for (const lang of languages) {
     console.log(`Wordlist (${lang.toUpperCase()}):`);
@@ -207,7 +207,7 @@ async function runTests() {
     assert(typeof SCI18n.t('status.active') === 'string' && SCI18n.t('status.active').length > 0, `${lang} has status.active translation`);
     assert(typeof SCI18n.t('btn.start') === 'string' && SCI18n.t('btn.start').length > 0, `${lang} has btn.start translation`);
   }
-  assertEq(SCI18n.getAvailableLanguages().sort(), ['de', 'en', 'ru', 'uk'], 'available languages');
+  assertEq(SCI18n.getAvailableLanguages().sort(), ['be', 'de', 'en', 'fa', 'kk', 'ru', 'uk'], 'available languages');
 
   // Auto-detect locale
   assertEq(SCI18n.detectFromLocale('ru-RU'), 'ru', 'detect ru-RU');

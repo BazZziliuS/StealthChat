@@ -161,6 +161,9 @@
     .lang-tag-ru { background: #3a1e5f; color: #c07aff; }
     .lang-tag-uk { background: #1e5f3a; color: #7affc0; }
     .lang-tag-de { background: #5f3a1e; color: #ffc07a; }
+    .lang-tag-be { background: #5f1e4a; color: #ff7adb; }
+    .lang-tag-fa { background: #4a5f1e; color: #dbff7a; }
+    .lang-tag-kk { background: #1e4a5f; color: #7adbff; }
   </style>
 </head>
 <body>
@@ -172,15 +175,15 @@
       <span class="badge badge-user-a">This Tab</span>
     </div>
     <div class="instructions">
-      <strong>How to test (v1.2):</strong><br>
-      1. Click StealthChat icon → select language (EN/RU/UK/DE) → <strong>Start Encryption</strong><br>
+      <strong>How to test (v1.3):</strong><br>
+      1. Click StealthChat icon → select language (EN/RU/UK/DE/BE/FA/KK) → <strong>Start Encryption</strong><br>
       2. Paste the key into User A's input below and click <strong>Send</strong><br>
       3. The key message appears in both panels (simulating network)<br>
       4. StealthChat on User B's side will auto-process the key<br>
       5. Copy User B's response key → paste into User B's input → Send<br>
       6. Session established! Now type in either input and press <code>Ctrl+Enter</code> to encrypt<br>
       <br>
-      <strong>New in v1.2:</strong> Multi-language encoding (🇬🇧 🇷🇺 🇺🇦 🇩🇪), light/dark theme toggle, auto clipboard clearing
+      <strong>v1.3:</strong> 7 languages (🇬🇧 🇷🇺 🇺🇦 🇩🇪 🇧🇾 🇮🇷 🇰🇿), light/dark theme, auto clipboard clearing
     </div>
     <div class="messages" id="messages-a"></div>
     <div class="input-area">
@@ -207,7 +210,10 @@
       🇬🇧 EN: <code>Alice slowly brought a neat desert along December.</code><br>
       🇷🇺 RU: <code>Алиса медленно принес этот яркий мост через понедельник.</code><br>
       🇺🇦 UK: <code>Оксана швидко приніс цей яскравий міст через понеділок.</code><br>
-      🇩🇪 DE: <code>Annika schnell brachte der hell Brücke über Montag.</code>
+      🇩🇪 DE: <code>Annika schnell brachte der hell Brücke über Montag.</code><br>
+      🇧🇾 BE: <code>Янка хутка прынёс гэты яркі мост праз панядзелак.</code><br>
+      🇮🇷 FA: <code>دارا سریع آورد این روشن پل درباره دوشنبه.</code><br>
+      🇰🇿 KK: <code>Айгүл тез әкелді бұл жарық көпір туралы дүйсенбі.</code>
     </div>
     <div class="messages" id="messages-b"></div>
     <div class="input-area">
@@ -223,7 +229,7 @@
     const inputB = document.getElementById('input-b');
 
     // Language detection for visual tags
-    const langNames = { en: 'EN', ru: 'RU', uk: 'UK', de: 'DE' };
+    const langNames = { en: 'EN', ru: 'RU', uk: 'UK', de: 'DE', be: 'BE', fa: 'FA', kk: 'KK' };
     const firstWordLangs = {};
 
     // Build a quick first-word lookup (matches extension's SC_DETECT_LANGUAGE)
@@ -231,7 +237,10 @@
       en: ['alice','bob','carol','david','emma','frank','grace','henry','irene','jack','karen','leo','mary','nick','olivia','peter'],
       ru: ['алиса','борис','вера','глеб','дарья','егор','жанна','захар','ирина','кирилл','лариса','максим','нина','олег','полина','руслан'],
       uk: ['оксана','тарас','леся','богдан','дарина','василь','злата','андрій','катерина','степан','мирослава','ярослав','соломія','петро','халина','ростислав'],
-      de: ['annika','bernd','claudia','dirk','elke','fritz','gerda','heinz','inge','jürgen','katrin','lutz','monika','norbert','petra','ralf']
+      de: ['annika','bernd','claudia','dirk','elke','fritz','gerda','heinz','inge','jürgen','katrin','lutz','monika','norbert','petra','ralf'],
+      be: ['янка','змітрок','алеся','кастусь','наста','юрась','ядвіга','лявон','ганна','міхась','светла','алесь','зося','вітаўт','паўліна','рыгор'],
+      fa: ['دارا','مهسا','کامران','شیرین','بهرام','نازنین','فرهاد','پریسا','آرمان','سارا','کیوان','لیلا','رامین','مریم','سیاوش','نسترن'],
+      kk: ['айгүл','бауыржан','гүлнар','дәурен','еркін','жансая','зарина','ілияс','камила','ләззат','мадина','нұрлан','орынбасар','перизат','рустем','сәуле']
     };
     for (const [lang, names] of Object.entries(namesByLang)) {
       for (const name of names) firstWordLangs[name] = lang;
