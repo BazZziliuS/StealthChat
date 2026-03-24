@@ -79,6 +79,28 @@ async function runTests() {
   }
   assert(!nameCollision, 'no name collisions across languages');
 
+  // Verify no duplicate words within any single category
+  console.log('\nNo duplicate words within categories:');
+  let hasDuplicates = false;
+  for (const lang of languages) {
+    const wl = SC_WORDLISTS[lang];
+    for (const cat of SC_CATEGORY_ORDER) {
+      const words = wl[cat].map(w => w.toLowerCase());
+      const unique = new Set(words);
+      if (unique.size !== words.length) {
+        const seen = new Set();
+        for (const w of words) {
+          if (seen.has(w)) {
+            console.error(`  ✗ Duplicate "${w}" in ${lang}.${cat}`);
+            hasDuplicates = true;
+          }
+          seen.add(w);
+        }
+      }
+    }
+  }
+  assert(!hasDuplicates, 'no duplicate words within any category');
+
   // Language detection
   console.log('\nLanguage Detection:');
   assert(SC_DETECT_LANGUAGE('Alice slowly brought the bright bridge about Monday.') === 'en', 'detects English');

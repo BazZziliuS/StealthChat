@@ -291,6 +291,12 @@
           el.innerText = response.encoded;
           el.dispatchEvent(new Event('input', { bubbles: true }));
         }
+
+        // Auto-rotation happened — update local session reference
+        if (response.rotated && response.newSessionId) {
+          await refreshSession();
+          showNotification(SCI18n.t('content.autoRotated') || `Key auto-rotated (#${response.rotationCounter})`);
+        }
       } else if (response?.error) {
         showNotification(SCI18n.t('content.encryptError') + response.error);
       }

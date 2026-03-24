@@ -73,12 +73,28 @@ async function handleSetLanguage({ language }) {
 
 // --- Encryption / Decryption ---
 
+const AUTO_ROTATE_INTERVAL = 50; // Rotate key every N messages
+
 async function handleEncrypt({ text, sessionId }) {
-  const session = await getSession(sessionId);
+  const sessions = await loadData('sessions') || {};
+  const session = sessions[sessionId];
   if (!session) return { error: 'Session not found' };
 
   const aesKey = await SCCrypto.importAESKey(session.symmetricKey);
   const encoded = await SCCrypto.encryptAndEncode(text, aesKey, sessionId);
+
+  // Increment message counter
+  session.messageCount = (session.messageCount || 0) + 1;
+  await saveData('sessions', sessions);
+
+  // Auto-rotate if threshold reached
+  if (session.messageCount >= AUTO_ROTATE_INTERVAL) {
+    const rotateResult = await handleRotateKey({ sessionId });
+    if (rotateResult?.ok) {
+      return { encoded, rotated: true, newSessionId: rotateResult.newSessionId, rotationCounter: rotateResult.rotationCounter };
+    }
+  }
+
   return { encoded };
 }
 
@@ -282,11 +298,12 @@ async function handleRotateKey({ sessionId }) {
     session.previousKeys = session.previousKeys.slice(-5);
   }
 
-  // Update session with new key
+  // Update session with new key, reset message counter
   const updatedSession = {
     ...session,
     symmetricKey: newSymmetricKey,
     rotationCounter: counter,
+    messageCount: 0,
     lastRotatedAt: new Date().toISOString()
   };
 
