@@ -101,6 +101,25 @@ async function runTests() {
   }
   assert(!hasDuplicates, 'no duplicate words within any category');
 
+  // Verify no word appears in two different categories within same language
+  console.log('\nNo cross-category duplicates within a language:');
+  let hasCrossDup = false;
+  for (const lang of languages) {
+    const wl = SC_WORDLISTS[lang];
+    const allWords = new Map();
+    for (const cat of SC_CATEGORY_ORDER) {
+      for (const w of wl[cat]) {
+        const lower = w.toLowerCase();
+        if (allWords.has(lower)) {
+          console.error(`  ✗ "${w}" in ${lang}.${allWords.get(lower)} and ${lang}.${cat}`);
+          hasCrossDup = true;
+        }
+        allWords.set(lower, cat);
+      }
+    }
+  }
+  assert(!hasCrossDup, 'no cross-category duplicates within any language');
+
   // Language detection
   console.log('\nLanguage Detection:');
   assert(SC_DETECT_LANGUAGE('Alice slowly brought the bright bridge about Monday.') === 'en', 'detects English');
