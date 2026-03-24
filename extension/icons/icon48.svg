@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- Chat bubble -->
+  <rect x="3" y="3" width="42" height="33" rx="8" ry="8" fill="#1a1a2e"/>
+  <polygon points="10,36 20,36 14,45" fill="#1a1a2e"/>
+  <!-- Lock body -->
+  <rect x="16" y="19" width="16" height="12" rx="2.5" ry="2.5" fill="#00d4aa"/>
+  <!-- Lock shackle -->
+  <path d="M19.5,19 V14.5 A4.5,4.5 0 0 1 28.5,14.5 V19" fill="none" stroke="#00d4aa" stroke-width="3" stroke-linecap="round"/>
+  <!-- Keyhole -->
+  <circle cx="24" cy="25" r="2" fill="#1a1a2e"/>
+  <rect x="23" y="25" width="2" height="3" rx="0.5" fill="#1a1a2e"/>
+</svg>

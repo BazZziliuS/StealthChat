@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>StealthChat — Test Chat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0e0e1a;
+      color: #e0e0e0;
+      display: flex;
+      height: 100vh;
+    }
+
+    .chat-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #2a2a4a;
+    }
+    .chat-panel:last-child { border-right: none; }
+
+    .chat-header {
+      padding: 12px 16px;
+      background: #1a1a2e;
+      font-weight: 600;
+      font-size: 14px;
+      border-bottom: 1px solid #2a2a4a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header .badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 400;
+    }
+    .badge-user-a { background: #00d4aa; color: #0e0e1a; }
+    .badge-user-b { background: #6c5ce7; color: white; }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+
+    .message-sent {
+      align-self: flex-end;
+      background: #1e3a5f;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-received {
+      align-self: flex-start;
+      background: #1a1a2e;
+      border-bottom-left-radius: 4px;
+    }
+
+    .message-system {
+      align-self: center;
+      background: transparent;
+      color: #666;
+      font-size: 11px;
+      font-style: italic;
+    }
+
+    .input-area {
+      padding: 12px;
+      background: #1a1a2e;
+      border-top: 1px solid #2a2a4a;
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-area textarea {
+      flex: 1;
+      background: #0e0e1a;
+      border: 1px solid #2a2a4a;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      resize: none;
+      height: 60px;
+    }
+
+    .input-area textarea:focus { outline: none; border-color: #00d4aa; }
+
+    .input-area button {
+      padding: 8px 16px;
+      background: #00d4aa;
+      color: #0e0e1a;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      align-self: flex-end;
+    }
+    .input-area button:hover { background: #00e8bb; }
+
+    .divider {
+      width: 3px;
+      background: #2a2a4a;
+      position: relative;
+    }
+    .divider::after {
+      content: 'NETWORK';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      color: #444;
+      font-size: 10px;
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+
+    .instructions {
+      padding: 16px;
+      background: #12122a;
+      border-bottom: 1px solid #2a2a4a;
+      font-size: 12px;
+      color: #888;
+      line-height: 1.6;
+    }
+    .instructions strong { color: #00d4aa; }
+    .instructions code {
+      background: #1a1a2e;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- User A panel -->
+  <div class="chat-panel" id="panel-a">
+    <div class="chat-header">
+      User A
+      <span class="badge badge-user-a">This Tab</span>
+    </div>
+    <div class="instructions">
+      <strong>How to test solo:</strong><br>
+      1. Click StealthChat icon → <strong>Start Encryption</strong><br>
+      2. Paste the key into User A's input below and click <strong>Send</strong><br>
+      3. The key message appears in both panels (simulating network)<br>
+      4. StealthChat on User B's side will auto-process the key<br>
+      5. Copy User B's response key → paste into User B's input → Send<br>
+      6. Session established! Now type in either input and press <code>Ctrl+Enter</code> to encrypt
+    </div>
+    <div class="messages" id="messages-a"></div>
+    <div class="input-area">
+      <textarea id="input-a" placeholder="Type a message... (Ctrl+Enter to encrypt before sending)"></textarea>
+      <button onclick="sendMessage('a')">Send</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- User B panel -->
+  <div class="chat-panel" id="panel-b">
+    <div class="chat-header">
+      User B
+      <span class="badge badge-user-b">Simulated Peer</span>
+    </div>
+    <div class="instructions">
+      <strong>User B sees:</strong><br>
+      Messages from User A appear here as "received".<br>
+      With StealthChat installed, encrypted messages are auto-decrypted.<br>
+      Without the extension, you'd see only English sentences.
+    </div>
+    <div class="messages" id="messages-b"></div>
+    <div class="input-area">
+      <textarea id="input-b" placeholder="Type a message... (Ctrl+Enter to encrypt before sending)"></textarea>
+      <button onclick="sendMessage('b')">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const messagesA = document.getElementById('messages-a');
+    const messagesB = document.getElementById('messages-b');
+    const inputA = document.getElementById('input-a');
+    const inputB = document.getElementById('input-b');
+
+    function addMessage(panel, text, type) {
+      const container = panel === 'a' ? messagesA : messagesB;
+      const div = document.createElement('div');
+      div.className = `message message-${type}`;
+      div.textContent = text;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+      for (const container of [messagesA, messagesB]) {
+        const div = document.createElement('div');
+        div.className = 'message message-system';
+        div.textContent = text;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function sendMessage(from) {
+      const input = from === 'a' ? inputA : inputB;
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Show as sent in sender's panel
+      addMessage(from, text, 'sent');
+
+      // Show as received in other panel (simulating network delivery)
+      const other = from === 'a' ? 'b' : 'a';
+      addMessage(other, text, 'received');
+
+      input.value = '';
+      input.focus();
+    }
+
+    // Also allow Enter (without Ctrl) to send
+    // Ctrl+Enter is reserved for StealthChat encryption
+    for (const input of [inputA, inputB]) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+          e.preventDefault();
+          const from = input === inputA ? 'a' : 'b';
+          sendMessage(from);
+        }
+      });
+    }
+
+    addSystemMessage('Open StealthChat popup → Start Encryption → paste key here to test');
+  </script>
+</body>
+</html>

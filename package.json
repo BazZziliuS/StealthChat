@@ -1,0 +1,9 @@
+{
+  "name": "stealthchat",
+  "version": "1.0.0",
+  "description": "E2E encryption Chrome extension — messages encoded as English sentences",
+  "private": true,
+  "scripts": {
+    "test": "node tests/test.js"
+  }
+}
