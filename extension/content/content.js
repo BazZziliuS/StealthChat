@@ -167,6 +167,10 @@
           try {
             await navigator.clipboard.writeText(response.encoded);
             showNotification(t('content.keyReceived'));
+            // Clear clipboard after 30 seconds
+            setTimeout(() => {
+              navigator.clipboard.writeText('').catch(() => {});
+            }, 30000);
           } catch {
             showNotification(t('content.keyReceivedManual'));
           }

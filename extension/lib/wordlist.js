@@ -2,6 +2,9 @@
  * StealthChat — Multi-language word categories for steganographic encoding.
  * 8 categories × 16 words = 128 words per language.
  * Each word encodes 4 bits (index 0–15 within its category).
+ *
+ * IMPORTANT: Names in each language MUST be unique across all languages
+ * (case-insensitive) — SC_DETECT_LANGUAGE relies on names for auto-detection.
  */
 
 const SC_WORDLISTS = {
@@ -81,6 +84,82 @@ const SC_WORDLISTS = {
       'воскресенье', 'январь', 'март', 'апрель', 'июнь', 'июль',
       'август', 'октябрь', 'ноябрь', 'декабрь'
     ]
+  },
+
+  uk: {
+    names: [
+      'Оксана', 'Тарас', 'Леся', 'Богдан', 'Дарина', 'Василь', 'Злата', 'Андрій',
+      'Катерина', 'Степан', 'Мирослава', 'Ярослав', 'Соломія', 'Петро', 'Халина', 'Ростислав'
+    ],
+    adverbs: [
+      'швидко', 'повільно', 'тихо', 'сміливо', 'ніжно', 'весело',
+      'мудро', 'голосно', 'майже', 'відкрито', 'ввічливо', 'спокійно',
+      'різко', 'плавно', 'тепло', 'вправно'
+    ],
+    verbs: [
+      'приніс', 'забрав', 'зловив', 'зустрів', 'доставив', 'впустив',
+      'знайшов', 'дістав', 'зібрав', 'вручив', 'відкрив', 'зберіг',
+      'кинув', 'рушив', 'віддав', 'поставив'
+    ],
+    articles: [
+      'цей', 'той', 'один', 'свій', 'такий', 'кожний', 'будь', 'якийсь',
+      'мій', 'твій', 'його', 'наш', 'ваш', 'інший', 'весь', 'сам'
+    ],
+    adjectives: [
+      'яскравий', 'тихий', 'темний', 'порожній', 'чесний', 'старий', 'важкий', 'гострий',
+      'легкий', 'ясний', 'чистий', 'новий', 'простий', 'міцний', 'високий', 'славний'
+    ],
+    nouns: [
+      'міст', 'замок', 'місто', 'ліс', 'сад', 'порт', 'острів', 'ринок',
+      'палац', 'храм', 'парк', 'музей', 'театр', 'причал', 'маяк', 'дім'
+    ],
+    prepositions: [
+      'через', 'після', 'перед', 'навколо', 'між', 'вздовж', 'серед', 'проти',
+      'позаду', 'крім', 'заради', 'біля', 'поруч', 'всередині', 'повз', 'навпроти'
+    ],
+    timeWords: [
+      'понеділок', 'вівторок', 'середа', 'четвер', 'пятниця', 'субота',
+      'неділя', 'січень', 'березень', 'квітень', 'червень', 'липень',
+      'серпень', 'жовтень', 'листопад', 'грудень'
+    ]
+  },
+
+  de: {
+    names: [
+      'Annika', 'Bernd', 'Claudia', 'Dirk', 'Elke', 'Fritz', 'Gerda', 'Heinz',
+      'Inge', 'Jürgen', 'Katrin', 'Lutz', 'Monika', 'Norbert', 'Petra', 'Ralf'
+    ],
+    adverbs: [
+      'schnell', 'langsam', 'leise', 'mutig', 'sanft', 'fröhlich',
+      'klug', 'laut', 'fast', 'offen', 'höflich', 'ruhig',
+      'heftig', 'weich', 'warm', 'weise'
+    ],
+    verbs: [
+      'brachte', 'trug', 'fing', 'traf', 'lieferte', 'legte',
+      'fand', 'holte', 'sammelte', 'reichte', 'öffnete', 'hielt',
+      'warf', 'schob', 'gab', 'stellte'
+    ],
+    articles: [
+      'der', 'ein', 'jener', 'dieser', 'jeder', 'mancher', 'sein', 'ihr',
+      'mein', 'dein', 'unser', 'euer', 'kein', 'welcher', 'solcher', 'irgendein'
+    ],
+    adjectives: [
+      'hell', 'still', 'dunkel', 'leer', 'edel', 'schwer', 'scharf', 'leicht',
+      'mild', 'klar', 'rein', 'alt', 'schlicht', 'reich', 'hoch', 'stolz'
+    ],
+    nouns: [
+      'Brücke', 'Schloss', 'Stadt', 'Wald', 'Garten', 'Hafen', 'Insel', 'Markt',
+      'Palast', 'Tempel', 'Park', 'Museum', 'Theater', 'Turm', 'Strand', 'Haus'
+    ],
+    prepositions: [
+      'über', 'nach', 'vor', 'neben', 'gegen', 'durch', 'unter', 'hinter',
+      'zwischen', 'ohne', 'trotz', 'wegen', 'statt', 'außer', 'entlang', 'gegenüber'
+    ],
+    timeWords: [
+      'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag',
+      'Sonntag', 'Januar', 'März', 'April', 'Juni', 'Juli',
+      'August', 'Oktober', 'November', 'Dezember'
+    ]
   }
 };
 
@@ -105,11 +184,6 @@ for (const [lang, wordlist] of Object.entries(SC_WORDLISTS)) {
 // Active encoding language (default: en)
 let SC_ENCODING_LANG = 'en';
 
-/**
- * Set the active language for encoding outgoing messages.
- * @param {string} lang - Language code ('en', 'ru', etc.)
- * @returns {boolean} true if language is supported
- */
 function SC_SET_ENCODING_LANG(lang) {
   if (SC_WORDLISTS[lang]) {
     SC_ENCODING_LANG = lang;
@@ -118,36 +192,18 @@ function SC_SET_ENCODING_LANG(lang) {
   return false;
 }
 
-/**
- * Get the current encoding language.
- * @returns {string}
- */
 function SC_GET_ENCODING_LANG() {
   return SC_ENCODING_LANG;
 }
 
-/**
- * Get the wordlist for the active encoding language.
- * @returns {object}
- */
 function SC_GET_WORDLIST() {
   return SC_WORDLISTS[SC_ENCODING_LANG];
 }
 
-/**
- * Get the reverse lookup for a specific language.
- * @param {string} lang
- * @returns {object}
- */
 function SC_GET_REVERSE_LOOKUP(lang) {
   return SC_REVERSE_LOOKUPS[lang || SC_ENCODING_LANG];
 }
 
-/**
- * Detect which language an encoded text uses by checking the first word.
- * @param {string} text - Encoded text
- * @returns {string|null} Language code or null if not recognized
- */
 function SC_DETECT_LANGUAGE(text) {
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -164,7 +220,6 @@ function SC_DETECT_LANGUAGE(text) {
   return null;
 }
 
-// Backward compatibility: keep SC_MARKER_WORD for English
 const SC_MARKER_WORD = SC_WORDLISTS.en.names[0].toLowerCase();
 
 if (typeof module !== 'undefined' && module.exports) {

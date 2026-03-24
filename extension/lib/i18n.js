@@ -7,13 +7,12 @@ const SCI18n = (() => {
 
   const translations = {
     en: {
-      // Status
       'status.checking': 'Checking...',
       'status.notEncrypted': 'Not encrypted',
       'status.waiting': 'Waiting for peer...',
       'status.active': 'Encryption active',
+      'status.established': 'Session established!',
 
-      // Buttons
       'btn.start': 'Start Encryption',
       'btn.generating': 'Generating...',
       'btn.rotate': 'Rotate Key',
@@ -24,7 +23,6 @@ const SCI18n = (() => {
       'btn.import': 'Import',
       'btn.resetAll': 'Reset All',
 
-      // Sections
       'section.sessions': 'Sessions',
       'session.noSession': 'No encryption session for this page.',
       'session.pending': "Waiting for peer's key...",
@@ -36,13 +34,11 @@ const SCI18n = (() => {
       'session.hotkey': 'Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to encrypt. Click 🔒 to view ciphertext.',
       'session.rotations': 'rotations',
 
-      // Confirmations
       'confirm.reset': 'Reset encryption keys for this session?\nOld messages will not be decryptable.',
       'confirm.rotate': 'Rotate encryption key?\nBoth you and your contact must rotate at the same time.\nOld messages stay readable (last 5 keys kept).',
       'confirm.delete': 'Delete this session?',
       'confirm.resetAll': 'Delete ALL sessions and keys? This cannot be undone.\nOld messages will not be decryptable.',
 
-      // Content script
       'content.keyReceived': 'Key received! Response copied to clipboard — paste and send it.',
       'content.keyReceivedManual': 'Key received! Copy the response from the extension popup.',
       'content.encryptError': 'Encryption error: ',
@@ -55,13 +51,13 @@ const SCI18n = (() => {
       'tooltip.decrypted': 'Decrypted',
       'tooltip.error': 'Error',
 
-      // Fingerprint states
       'fp.loading': 'loading...',
       'fp.unavailable': 'unavailable',
       'fp.error': 'error',
 
-      // Language selector
-      'lang.label': 'Language'
+      'lang.label': 'Language',
+      'theme.toggle': 'Toggle theme',
+      'clipboard.cleared': 'Clipboard cleared'
     },
 
     ru: {
@@ -69,6 +65,7 @@ const SCI18n = (() => {
       'status.notEncrypted': 'Не зашифровано',
       'status.waiting': 'Ожидание собеседника...',
       'status.active': 'Шифрование активно',
+      'status.established': 'Сессия установлена!',
 
       'btn.start': 'Начать шифрование',
       'btn.generating': 'Генерация...',
@@ -112,13 +109,125 @@ const SCI18n = (() => {
       'fp.unavailable': 'недоступно',
       'fp.error': 'ошибка',
 
-      'lang.label': 'Язык'
+      'lang.label': 'Язык',
+      'theme.toggle': 'Сменить тему',
+      'clipboard.cleared': 'Буфер очищен'
+    },
+
+    uk: {
+      'status.checking': 'Перевірка...',
+      'status.notEncrypted': 'Не зашифровано',
+      'status.waiting': 'Очікування співрозмовника...',
+      'status.active': 'Шифрування активне',
+      'status.established': 'Сесію встановлено!',
+
+      'btn.start': 'Почати шифрування',
+      'btn.generating': 'Генерація...',
+      'btn.rotate': 'Змінити ключ',
+      'btn.rotating': 'Зміна...',
+      'btn.rotated': 'Ключ змінено',
+      'btn.reset': 'Скинути ключі',
+      'btn.export': 'Експорт',
+      'btn.import': 'Імпорт',
+      'btn.resetAll': 'Скинути все',
+
+      'section.sessions': 'Сесії',
+      'session.noSession': 'Немає сесії шифрування для цієї сторінки.',
+      'session.pending': 'Очікування ключа співрозмовника...',
+      'session.pendingHint': 'Вставте закодований ключ у чат і надішліть співрозмовнику.',
+      'session.encrypted': 'Зашифрована сесія',
+      'session.none': 'Сесій поки немає',
+      'session.fingerprint': 'Відбиток',
+      'session.fingerprintHint': 'Порівняйте цю таблицю зі співрозмовником через інший канал (дзвінок, особисто), щоб переконатись, що ключ не було перехоплено.',
+      'session.hotkey': 'Натисніть <kbd>Ctrl</kbd>+<kbd>Enter</kbd> для шифрування. Натисніть 🔒 для перегляду шифротексту.',
+      'session.rotations': 'ротацій',
+
+      'confirm.reset': 'Скинути ключі шифрування для цієї сесії?\nСтарі повідомлення не будуть розшифровані.',
+      'confirm.rotate': 'Змінити ключ шифрування?\nОбидва співрозмовники мають змінити ключ одночасно.\nСтарі повідомлення залишаться читабельними (зберігаються останні 5 ключів).',
+      'confirm.delete': 'Видалити цю сесію?',
+      'confirm.resetAll': 'Видалити ВСІ сесії та ключі? Це незворотна дія.\nСтарі повідомлення не будуть розшифровані.',
+
+      'content.keyReceived': 'Ключ отримано! Відповідь скопійовано — вставте та надішліть.',
+      'content.keyReceivedManual': 'Ключ отримано! Скопіюйте відповідь з вікна розширення.',
+      'content.encryptError': 'Помилка шифрування: ',
+      'content.keyRequest': '🔐 Запит обміну ключами (оброблено)',
+      'content.keyComplete': '🔐 Обмін ключами завершено',
+      'content.decrypted': 'Розшифровано успішно',
+      'content.decryptFailed': 'Помилка розшифровки',
+      'tooltip.session': 'Сесія',
+      'tooltip.cipher': 'Шифр',
+      'tooltip.decrypted': 'Розшифровано',
+      'tooltip.error': 'Помилка',
+
+      'fp.loading': 'завантаження...',
+      'fp.unavailable': 'недоступно',
+      'fp.error': 'помилка',
+
+      'lang.label': 'Мова',
+      'theme.toggle': 'Змінити тему',
+      'clipboard.cleared': 'Буфер очищено'
+    },
+
+    de: {
+      'status.checking': 'Prüfung...',
+      'status.notEncrypted': 'Nicht verschlüsselt',
+      'status.waiting': 'Warten auf Gegenüber...',
+      'status.active': 'Verschlüsselung aktiv',
+      'status.established': 'Sitzung hergestellt!',
+
+      'btn.start': 'Verschlüsselung starten',
+      'btn.generating': 'Generierung...',
+      'btn.rotate': 'Schlüssel wechseln',
+      'btn.rotating': 'Wechsel...',
+      'btn.rotated': 'Gewechselt',
+      'btn.reset': 'Schlüssel zurücksetzen',
+      'btn.export': 'Export',
+      'btn.import': 'Import',
+      'btn.resetAll': 'Alles zurücksetzen',
+
+      'section.sessions': 'Sitzungen',
+      'session.noSession': 'Keine Verschlüsselungssitzung für diese Seite.',
+      'session.pending': 'Warten auf den Schlüssel des Gegenübers...',
+      'session.pendingHint': 'Fügen Sie den kodierten Schlüssel in den Chat ein und senden Sie ihn.',
+      'session.encrypted': 'Verschlüsselte Sitzung',
+      'session.none': 'Noch keine Sitzungen',
+      'session.fingerprint': 'Fingerabdruck',
+      'session.fingerprintHint': 'Vergleichen Sie dieses Raster mit Ihrem Kontakt über einen anderen Kanal (Anruf, persönlich), um sicherzustellen, dass niemand den Schlüsselaustausch abgefangen hat.',
+      'session.hotkey': 'Drücken Sie <kbd>Ctrl</kbd>+<kbd>Enter</kbd> zum Verschlüsseln. Klicken Sie 🔒 für den Chiffretext.',
+      'session.rotations': 'Rotationen',
+
+      'confirm.reset': 'Schlüssel für diese Sitzung zurücksetzen?\nAlte Nachrichten werden nicht mehr entschlüsselbar.',
+      'confirm.rotate': 'Schlüssel wechseln?\nBeide Teilnehmer müssen gleichzeitig wechseln.\nAlte Nachrichten bleiben lesbar (letzte 5 Schlüssel gespeichert).',
+      'confirm.delete': 'Diese Sitzung löschen?',
+      'confirm.resetAll': 'ALLE Sitzungen und Schlüssel löschen? Dies kann nicht rückgängig gemacht werden.',
+
+      'content.keyReceived': 'Schlüssel empfangen! Antwort in Zwischenablage kopiert — einfügen und senden.',
+      'content.keyReceivedManual': 'Schlüssel empfangen! Kopieren Sie die Antwort aus dem Erweiterungsfenster.',
+      'content.encryptError': 'Verschlüsselungsfehler: ',
+      'content.keyRequest': '🔐 Schlüsselaustausch-Anfrage (verarbeitet)',
+      'content.keyComplete': '🔐 Schlüsselaustausch abgeschlossen',
+      'content.decrypted': 'Erfolgreich entschlüsselt',
+      'content.decryptFailed': 'Entschlüsselung fehlgeschlagen',
+      'tooltip.session': 'Sitzung',
+      'tooltip.cipher': 'Chiffre',
+      'tooltip.decrypted': 'Entschlüsselt',
+      'tooltip.error': 'Fehler',
+
+      'fp.loading': 'Laden...',
+      'fp.unavailable': 'nicht verfügbar',
+      'fp.error': 'Fehler',
+
+      'lang.label': 'Sprache',
+      'theme.toggle': 'Design wechseln',
+      'clipboard.cleared': 'Zwischenablage gelöscht'
     }
   };
 
   const languageNames = {
     en: 'English',
-    ru: 'Русский'
+    ru: 'Русский',
+    uk: 'Українська',
+    de: 'Deutsch'
   };
 
   let activeLang = 'en';
@@ -147,7 +256,18 @@ const SCI18n = (() => {
     return languageNames[code] || code;
   }
 
-  return { setLanguage, getLanguage, getAvailableLanguages, getLanguageName, t };
+  /**
+   * Detect the best matching language from a browser locale string.
+   * @param {string} locale - e.g. "ru-RU", "en-US", "uk", "de-DE"
+   * @returns {string} Language code
+   */
+  function detectFromLocale(locale) {
+    if (!locale) return 'en';
+    const lang = locale.split('-')[0].toLowerCase();
+    return translations[lang] ? lang : 'en';
+  }
+
+  return { setLanguage, getLanguage, getAvailableLanguages, getLanguageName, t, detectFromLocale };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -147,6 +147,20 @@
       border-radius: 3px;
       font-size: 11px;
     }
+
+    .lang-tag {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .lang-tag-en { background: #1e3a5f; color: #7abaff; }
+    .lang-tag-ru { background: #3a1e5f; color: #c07aff; }
+    .lang-tag-uk { background: #1e5f3a; color: #7affc0; }
+    .lang-tag-de { background: #5f3a1e; color: #ffc07a; }
   </style>
 </head>
 <body>
@@ -158,13 +172,15 @@
       <span class="badge badge-user-a">This Tab</span>
     </div>
     <div class="instructions">
-      <strong>How to test solo:</strong><br>
-      1. Click StealthChat icon → <strong>Start Encryption</strong><br>
+      <strong>How to test (v1.2):</strong><br>
+      1. Click StealthChat icon → select language (EN/RU/UK/DE) → <strong>Start Encryption</strong><br>
       2. Paste the key into User A's input below and click <strong>Send</strong><br>
       3. The key message appears in both panels (simulating network)<br>
       4. StealthChat on User B's side will auto-process the key<br>
       5. Copy User B's response key → paste into User B's input → Send<br>
-      6. Session established! Now type in either input and press <code>Ctrl+Enter</code> to encrypt
+      6. Session established! Now type in either input and press <code>Ctrl+Enter</code> to encrypt<br>
+      <br>
+      <strong>New in v1.2:</strong> Multi-language encoding (🇬🇧 🇷🇺 🇺🇦 🇩🇪), light/dark theme toggle, auto clipboard clearing
     </div>
     <div class="messages" id="messages-a"></div>
     <div class="input-area">
@@ -185,7 +201,13 @@
       <strong>User B sees:</strong><br>
       Messages from User A appear here as "received".<br>
       With StealthChat installed, encrypted messages are auto-decrypted.<br>
-      Without the extension, you'd see only English sentences.
+      Without the extension, you'd see sentences in the selected language.<br>
+      <br>
+      <strong>Language examples:</strong><br>
+      🇬🇧 EN: <code>Alice slowly brought a neat desert along December.</code><br>
+      🇷🇺 RU: <code>Алиса медленно принес этот яркий мост через понедельник.</code><br>
+      🇺🇦 UK: <code>Оксана швидко приніс цей яскравий міст через понеділок.</code><br>
+      🇩🇪 DE: <code>Annika schnell brachte der hell Brücke über Montag.</code>
     </div>
     <div class="messages" id="messages-b"></div>
     <div class="input-area">
@@ -200,11 +222,41 @@
     const inputA = document.getElementById('input-a');
     const inputB = document.getElementById('input-b');
 
+    // Language detection for visual tags
+    const langNames = { en: 'EN', ru: 'RU', uk: 'UK', de: 'DE' };
+    const firstWordLangs = {};
+
+    // Build a quick first-word lookup (matches extension's SC_DETECT_LANGUAGE)
+    const namesByLang = {
+      en: ['alice','bob','carol','david','emma','frank','grace','henry','irene','jack','karen','leo','mary','nick','olivia','peter'],
+      ru: ['алиса','борис','вера','глеб','дарья','егор','жанна','захар','ирина','кирилл','лариса','максим','нина','олег','полина','руслан'],
+      uk: ['оксана','тарас','леся','богдан','дарина','василь','злата','андрій','катерина','степан','мирослава','ярослав','соломія','петро','халина','ростислав'],
+      de: ['annika','bernd','claudia','dirk','elke','fritz','gerda','heinz','inge','jürgen','katrin','lutz','monika','norbert','petra','ralf']
+    };
+    for (const [lang, names] of Object.entries(namesByLang)) {
+      for (const name of names) firstWordLangs[name] = lang;
+    }
+
+    function detectLang(text) {
+      const first = text.trim().split(/[\s.]+/)[0]?.toLowerCase();
+      return first ? firstWordLangs[first] || null : null;
+    }
+
     function addMessage(panel, text, type) {
       const container = panel === 'a' ? messagesA : messagesB;
       const div = document.createElement('div');
       div.className = `message message-${type}`;
       div.textContent = text;
+
+      // Detect encoded language and show tag
+      const lang = detectLang(text);
+      if (lang) {
+        const tag = document.createElement('span');
+        tag.className = `lang-tag lang-tag-${lang}`;
+        tag.textContent = langNames[lang];
+        div.appendChild(tag);
+      }
+
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
     }
@@ -224,10 +276,8 @@
       const text = input.value.trim();
       if (!text) return;
 
-      // Show as sent in sender's panel
       addMessage(from, text, 'sent');
 
-      // Show as received in other panel (simulating network delivery)
       const other = from === 'a' ? 'b' : 'a';
       addMessage(other, text, 'received');
 
@@ -235,8 +285,7 @@
       input.focus();
     }
 
-    // Also allow Enter (without Ctrl) to send
-    // Ctrl+Enter is reserved for StealthChat encryption
+    // Enter to send, Ctrl+Enter reserved for StealthChat encryption
     for (const input of [inputA, inputB]) {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
@@ -247,7 +296,7 @@
       });
     }
 
-    addSystemMessage('Open StealthChat popup → Start Encryption → paste key here to test');
+    addSystemMessage('Open StealthChat popup → Select language → Start Encryption → paste key here to test');
   </script>
 </body>
 </html>

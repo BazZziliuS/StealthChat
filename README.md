@@ -1,8 +1,8 @@
 # StealthChat
 
-**End-to-end encryption for any web messenger — messages look like ordinary English sentences.**
+**End-to-end encryption for any web messenger — messages look like ordinary sentences in your chosen language.**
 
-StealthChat is a Chrome extension that encrypts your messages before sending and decrypts incoming messages automatically. Instead of gibberish ciphertext, encrypted messages appear as natural English sentences — invisible to platforms, servers, and anyone without the extension.
+StealthChat is a Chrome extension that encrypts your messages before sending and decrypts incoming messages automatically. Instead of gibberish ciphertext, encrypted messages appear as natural sentences in English, Russian, Ukrainian, or German — invisible to platforms, servers, and anyone without the extension.
 
 ---
 
@@ -11,15 +11,18 @@ StealthChat is a Chrome extension that encrypts your messages before sending and
 ```
 You type:          "Meet me at 5 near the subway"
 
-What gets sent:    "Alice slowly brought a neat desert along December.
-                    Grace happily entered every calm ocean beyond Friday."
+What gets sent     "Alice slowly brought a neat desert along December.
+(English):          Grace happily entered every calm ocean beyond Friday."
+
+What gets sent     "Алиса медленно принес этот яркий мост через понедельник.
+(Russian):          Жанна весело нашел каждый чистый дворец среди пятница."
 
 What your contact
 with StealthChat
 sees:              "Meet me at 5 near the subway"
 ```
 
-No markers. No tags. No suspicious characters. Just regular English sentences.
+No markers. No tags. No suspicious characters. Just regular sentences.
 
 ---
 
@@ -43,7 +46,7 @@ No markers. No tags. No suspicious characters. Just regular English sentences.
 └──────────────────────────────────────────────────────────────────┘
 
                     ┌─────────────┐
-                    │   Platform  │  Sees only English sentences
+                    │   Platform  │  Sees only natural sentences
                     │   Server    │  ✗ Cannot read your messages
                     └─────────────┘
 ```
@@ -72,7 +75,7 @@ No markers. No tags. No suspicious characters. Just regular English sentences.
   └──────┬──────┘
          ▼
   ┌─────────────┐
-  │  Encode     │  bytes → English sentences
+  │  Encode     │  bytes → sentences (EN / RU / UK / DE)
   │  (wordlist) │  4 bits per word, 8 words per sentence
   └──────┬──────┘
          ▼
@@ -87,24 +90,24 @@ Each byte of encrypted data is split into two 4-bit nibbles. Each nibble selects
 ```
 Byte: 0xA3 = 1010 0011
 
-     High nibble: 1010 = 10 ──► adjectives[10] = "neat"
-     Low nibble:  0011 =  3 ──► nouns[3]       = "desert"
+     High nibble: 1010 = 10 ──► adjectives[10] = "neat" (EN) / "чистый" (RU)
+     Low nibble:  0011 =  3 ──► nouns[3]       = "desert" (EN) / "лес" (RU)
 ```
 
 **Sentence template:** `Name adverb verb article adjective noun preposition time.`
 
-| Position | Category | 16 words | Example |
-|----------|----------|----------|---------|
-| 1 | Names | Alice, Bob, Carol... | Alice |
-| 2 | Adverbs | quickly, slowly... | slowly |
-| 3 | Verbs | brought, carried... | brought |
-| 4 | Articles | the, a, one, this... | a |
-| 5 | Adjectives | bright, calm, dark... | neat |
-| 6 | Nouns | bridge, castle... | desert |
-| 7 | Prepositions | about, above... | along |
-| 8 | Time words | Monday, Tuesday... | December |
+Each language has its own 128-word dictionary (8 categories × 16 words):
+
+| Language | Example sentence |
+|----------|-----------------|
+| English  | Alice slowly brought a neat desert along December. |
+| Russian  | Алиса медленно принес этот яркий мост через понедельник. |
+| Ukrainian| Оксана повільно приніс цей яскравий міст через понеділок. |
+| German   | Annika langsam brachte der hell Brücke über Montag. |
 
 **→ One sentence = 8 words = 32 bits = 4 bytes of data**
+
+Decoding auto-detects the language by checking the first word — a message encoded in Russian will be correctly decoded regardless of the receiver's language setting.
 
 ### Key Exchange (ECDH)
 
@@ -148,8 +151,6 @@ Or click **Code → Download ZIP** on GitHub and unzip anywhere on your computer
 
 **Step 2 — Open the extensions page**
 
-Navigate to the extensions page in your browser:
-
 | Browser | Address |
 |---------|---------|
 | Chrome  | `chrome://extensions/` |
@@ -158,95 +159,37 @@ Navigate to the extensions page in your browser:
 
 **Step 3 — Enable Developer Mode**
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Extensions                              [Developer mode ☑] │
-│                                                         │
-│  ┌─────────────────┐                                    │
-│  │ Load unpacked  │  ← Click this button               │
-│  └─────────────────┘                                    │
-└─────────────────────────────────────────────────────────┘
-```
-
 Toggle the **Developer mode** switch in the top-right corner of the page.
 
 **Step 4 — Load the extension**
 
-1. Click **"Load unpacked"** (appears after enabling Developer Mode)
-2. In the file dialog, navigate to the downloaded repository
-3. Select the **`extension/`** folder (not the root folder — specifically the `extension/` subfolder)
+1. Click **"Load unpacked"**
+2. Navigate to the downloaded repository
+3. Select the **`extension/`** folder (not the root folder)
 4. Click **"Select Folder"**
 
 **Step 5 — Pin to toolbar**
 
-```
-┌──────────────────────────┐
-│  🧩 Extensions           │
-│  ┌────────────────────┐  │
-│  │ 🔒 StealthChat  📌 │  ← Click the pin icon
-│  └────────────────────┘  │
-└──────────────────────────┘
-```
-
 1. Click the puzzle icon (🧩) in the browser toolbar
 2. Find **StealthChat** in the list
-3. Click the **pin icon** (📌) to keep it visible in the toolbar
+3. Click the **pin icon** (📌) to keep it visible
 
-**Done!** The StealthChat lock icon now appears in your toolbar.
-
-> **Note:** Both you and your contact need to install the extension. Share this repository link with them.
+> **Note:** Both you and your contact need to install the extension.
 
 ## Usage
 
-### Step 1 — Set Up Encryption with a Contact
+### Step 1 — Choose Language & Set Up Encryption
 
-```
-  You                                         Your Contact
-   │                                               │
-   │  1. Click 🔒 icon → "Start Encryption"        │
-   │  2. Key copied to clipboard                   │
-   │                                               │
-   │  3. Paste & send ──────────────────────────►  │
-   │     "Carol eagerly delivered the bright       │
-   │      castle across Saturday..."               │
-   │                                               │
-   │                          4. Extension detects key
-   │                          5. Response auto-copied
-   │                                               │
-   │  ◄────────────────────── 6. Paste & send      │
-   │     "David kindly fetched one fair             │
-   │      garden behind Sunday..."                 │
-   │                                               │
-   │  ✅ "Encryption active"    ✅ "Encryption active"
-```
-
-1. Open any web chat (Telegram Web, WhatsApp Web, Facebook Messenger, etc.)
-2. Click the **StealthChat** icon (🔒) in the toolbar
+1. Click the **StealthChat** icon (🔒) in the toolbar
+2. Select your preferred language (**EN / RU / UK / DE**) — this determines what language the encoded sentences will be in
 3. Click **"Start Encryption"**
-4. The encoded public key is automatically copied to your clipboard
-5. Paste it into the chat and send — it looks like normal English sentences
+4. The encoded public key is automatically copied to your clipboard (cleared after 30 seconds)
+5. Paste it into the chat and send
 6. Your contact's extension auto-detects the key and copies a response
 7. They paste and send the response back
 8. Both sides now show **"Encryption active"**
 
 ### Step 2 — Send Encrypted Messages
-
-```
-  ┌────────────────────────────────────┐
-  │ Chat input                         │
-  │                                    │
-  │ "Meet me at 5 near the subway"     │  ← Type normally
-  │                                    │
-  │            Press Ctrl+Enter        │
-  │                  ▼                 │
-  │ "Alice slowly brought a neat       │  ← Text is replaced
-  │  desert along December. Grace      │
-  │  happily entered every calm        │
-  │  ocean beyond Friday."             │
-  │                                    │
-  │               [Send] ← Click send  │
-  └────────────────────────────────────┘
-```
 
 1. Type your message in the chat's input field as usual
 2. Press **Ctrl+Enter** — your text is replaced with encoded sentences
@@ -254,50 +197,21 @@ Toggle the **Developer mode** switch in the top-right corner of the page.
 
 ### Step 3 — Receive Messages
 
-```
-  ┌─────────────────────────────────────────┐
-  │  Contact:                               │
-  │  "Meet me at 5 near the subway" 🔒      │  ← Auto-decrypted
-  │                                         │
-  │  Without extension, they would see:     │
-  │  "Alice slowly brought a neat desert    │
-  │   along December..."                    │
-  └─────────────────────────────────────────┘
-```
-
-Automatic — StealthChat scans the page for encoded messages and decrypts them in-place. A 🔒 icon appears next to decrypted messages.
+Automatic — StealthChat scans the page for encoded messages and decrypts them in-place. A 🔒 icon appears next to decrypted messages. Messages are auto-detected regardless of which language they were encoded in.
 
 ### Managing Sessions
 
 Click the StealthChat icon to see:
 - **Current page status** — encrypted or not
 - **Toggle** — turn encryption on/off for this page
+- **Theme** — switch between dark and light themes (☀/🌙)
+- **Language selector** — EN, RU, UK, DE
 - **Session selector** — switch between multiple sessions on the same page
 - **Sessions list** — all active encrypted sessions
 - **Export/Import** — backup and restore your keys
 - **Reset All** — wipe all sessions and keys
 
 ### Verifying Your Contact (Fingerprint)
-
-```
-  ┌──────────────────────────────────┐
-  │  🔒 StealthChat           v1.0  │
-  │  ● Encryption active             │
-  │                                  │
-  │  FINGERPRINT                  ?  │
-  │  ┌──────┬──────┬──────┬──────┐   │
-  │  │  a3  │  b5  │  c7  │  d9  │   │
-  │  ├──────┼──────┼──────┼──────┤   │
-  │  │  e1  │  f2  │  0a  │  4b  │   │
-  │  ├──────┼──────┼──────┼──────┤   │
-  │  │  8c  │  3e  │  7f  │  1d  │   │
-  │  ├──────┼──────┼──────┼──────┤   │
-  │  │  2b  │  9a  │  5e  │  0c  │   │
-  │  └──────┴──────┴──────┴──────┘   │
-  │                                  │
-  │  [Rotate Key]  [Reset Keys]      │
-  └──────────────────────────────────┘
-```
 
 After setting up encryption, both you and your contact see a **fingerprint** — a 4x4 grid of hex pairs derived from the shared key. Compare the grid over a different channel (phone call, in person) to confirm no one intercepted the key exchange.
 
@@ -327,6 +241,9 @@ Click **"Rotate Key"** in the popup to derive a new encryption key from the curr
 | Forward secrecy | HKDF-ratchet key rotation (manual) |
 | Fingerprint | SHA-256 of symmetric key, first 16 bytes |
 | Crypto library | Web Crypto API only — no third-party crypto |
+| XSS protection | HTML escaping + DOM API for user data |
+| Import validation | Schema validation, prototype pollution protection |
+| Clipboard | Auto-cleared 30 seconds after key copy |
 
 ### What StealthChat protects against
 
@@ -356,13 +273,15 @@ extension/
 │   └── content.css         # Lock icon, notification styles
 ├── popup/
 │   ├── popup.html          # Extension popup UI
-│   ├── popup.css           # Dark theme styles
+│   ├── popup.css           # Dark/light theme styles (CSS variables)
 │   └── popup.js            # Popup logic
 ├── lib/
-│   ├── wordlist.js         # 8 categories × 16 words dictionary
-│   ├── encoder.js          # Bytes ↔ sentences conversion
+│   ├── i18n.js             # Translations (EN, RU, UK, DE)
+│   ├── wordlist.js         # Multi-language dictionaries (4 × 128 words)
+│   ├── encoder.js          # Bytes ↔ sentences (auto-detect language on decode)
 │   ├── protocol.js         # Binary packet format
 │   └── crypto.js           # ECDH, HKDF, AES-GCM operations
+├── test-chat.html          # Two-panel test chat for local testing
 └── icons/
     └── ...
 ```

@@ -6,7 +6,7 @@
   <title>StealthChat</title>
   <link rel="stylesheet" href="popup.css">
 </head>
-<body>
+<body data-theme="dark">
   <div class="container">
     <!-- Header -->
     <header class="header">
@@ -15,13 +15,19 @@
         <h1>StealthChat</h1>
       </div>
       <div class="header-right">
+        <button id="theme-toggle" class="theme-toggle" title="Toggle theme">☀</button>
         <select id="lang-select" class="lang-select" title="Language">
           <option value="en">EN</option>
           <option value="ru">RU</option>
+          <option value="uk">UK</option>
+          <option value="de">DE</option>
         </select>
-        <span class="version">v1.1</span>
+        <span class="version">v1.2</span>
       </div>
     </header>
+
+    <!-- Toast notification area -->
+    <div id="popup-toast-area"></div>
 
     <!-- Current page status -->
     <section id="status-section" class="section">
@@ -67,18 +73,16 @@
       <div id="fingerprint-section" class="fingerprint-section">
         <div class="fingerprint-header">
           <span class="fingerprint-label" id="fp-label">Fingerprint</span>
-          <span class="fingerprint-hint-icon" id="fp-hint-icon" title="Compare this grid with your contact over a different channel (call, in person) to verify nobody intercepted the key exchange.">?</span>
+          <span class="fingerprint-hint-icon" id="fp-hint-icon" title="">?</span>
         </div>
-        <div id="fingerprint-grid" class="fingerprint-grid">
-          <!-- 4×4 grid filled by JS -->
-        </div>
+        <div id="fingerprint-grid" class="fingerprint-grid"></div>
       </div>
 
       <div class="session-actions">
-        <button id="btn-rotate" class="btn btn-ghost btn-sm" title="Rotate encryption key for forward secrecy">Rotate Key</button>
+        <button id="btn-rotate" class="btn btn-ghost btn-sm">Rotate Key</button>
         <button id="btn-reset" class="btn btn-danger btn-sm">Reset Keys</button>
       </div>
-      <p class="hint hint-keys" id="hotkey-hint">Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to encrypt. Click 🔒 to view ciphertext.</p>
+      <p class="hint hint-keys" id="hotkey-hint"></p>
     </section>
 
     <!-- Sessions list -->

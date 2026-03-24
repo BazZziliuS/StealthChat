@@ -23,6 +23,8 @@
   const btnResetAll = document.getElementById('btn-reset-all');
   const importFile = document.getElementById('import-file');
   const langSelect = document.getElementById('lang-select');
+  const themeToggle = document.getElementById('theme-toggle');
+  const toastArea = document.getElementById('popup-toast-area');
 
   let currentTab = null;
   let currentSession = null;
@@ -38,8 +40,7 @@
   // --- Init ---
 
   async function init() {
-    // Load language setting first
-    await loadLanguageSetting();
+    await loadSettings();
     applyTranslations();
 
     currentTab = await getCurrentTab();
@@ -48,16 +49,20 @@
       return;
     }
 
-    // Get all sessions matching this URL
     const urlSessions = await sendBackground({ action: 'getSessionsForUrl', url: currentTab.url });
     sessionsForUrl = urlSessions?.sessions || [];
 
-    // Get active session
     const result = await sendBackground({ action: 'getSession', url: currentTab.url });
 
     if (result?.session) {
       currentSession = result.session;
       showState('active');
+
+      // Show toast if session was recently created (within 60 seconds)
+      const created = new Date(currentSession.createdAt).getTime();
+      if (Date.now() - created < 60000) {
+        showToast(SCI18n.t('status.established'));
+      }
     } else {
       showState('none');
     }
@@ -66,52 +71,72 @@
     setupEventListeners();
   }
 
-  // --- Language ---
+  // --- Settings (language + theme) ---
 
-  async function loadLanguageSetting() {
+  async function loadSettings() {
     const data = await new Promise(resolve => {
       chrome.storage.local.get('settings', result => resolve(result.settings));
     });
-    const lang = data?.language || 'en';
+
+    // Language: saved → browser locale → en
+    const lang = data?.language || SCI18n.detectFromLocale(navigator.language);
     SCI18n.setLanguage(lang);
     SC_SET_ENCODING_LANG(lang);
     langSelect.value = lang;
+
+    // Theme
+    const theme = data?.theme || 'dark';
+    applyTheme(theme);
+
+    // Save auto-detected language if first launch
+    if (!data?.language) {
+      const settings = data || {};
+      settings.language = lang;
+      await new Promise(resolve => {
+        chrome.storage.local.set({ settings }, resolve);
+      });
+    }
   }
 
   async function changeLanguage(lang) {
     SCI18n.setLanguage(lang);
     SC_SET_ENCODING_LANG(lang);
 
-    // Save to storage
-    const settings = await new Promise(resolve => {
-      chrome.storage.local.get('settings', result => resolve(result.settings || {}));
-    });
+    const settings = await getSettings();
     settings.language = lang;
-    await new Promise(resolve => {
-      chrome.storage.local.set({ settings }, resolve);
-    });
+    await saveSettings(settings);
 
-    // Notify background about language change
     await sendBackground({ action: 'setLanguage', language: lang });
-
     applyTranslations();
 
-    // Re-render dynamic content
     if (currentSession) {
       showState('active');
     }
     await loadSessionsList();
   }
 
+  function applyTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '☀' : '🌙';
+  }
+
+  async function toggleTheme() {
+    const current = document.body.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+
+    const settings = await getSettings();
+    settings.theme = next;
+    await saveSettings(settings);
+  }
+
   function applyTranslations() {
     const t = SCI18n.t;
 
-    // Status
-    if (statusText.textContent === 'Checking...' || statusText.textContent === 'Проверка...') {
+    if (statusText.textContent === 'Checking...' || statusText.textContent === SCI18n.t('status.checking')) {
       statusText.textContent = t('status.checking');
     }
 
-    // Buttons
     btnStart.textContent = t('btn.start');
     btnRotate.textContent = t('btn.rotate');
     btnReset.textContent = t('btn.reset');
@@ -119,19 +144,27 @@
     btnImport.textContent = t('btn.import');
     btnResetAll.textContent = t('btn.resetAll');
 
-    // Sections
     document.getElementById('no-session-hint').textContent = t('session.noSession');
     document.getElementById('pending-text').textContent = t('session.pending');
     document.getElementById('pending-hint').textContent = t('session.pendingHint');
     document.getElementById('sessions-title').textContent = t('section.sessions');
     document.getElementById('hotkey-hint').innerHTML = t('session.hotkey');
 
-    // Fingerprint
     document.getElementById('fp-label').textContent = t('session.fingerprint');
     document.getElementById('fp-hint-icon').title = t('session.fingerprintHint');
 
-    // Rotate button title
-    btnRotate.title = t('btn.rotate');
+    themeToggle.title = t('theme.toggle');
+  }
+
+  // --- Toast notification ---
+
+  function showToast(message, duration = 3000) {
+    toastArea.innerHTML = '';
+    const toast = document.createElement('div');
+    toast.className = 'popup-toast';
+    toast.textContent = message;
+    toastArea.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
   }
 
   function showState(state) {
@@ -187,6 +220,7 @@
     btnResetAll.addEventListener('click', resetAllKeys);
     importFile.addEventListener('change', importSessions);
     langSelect.addEventListener('change', () => changeLanguage(langSelect.value));
+    themeToggle.addEventListener('click', toggleTheme);
   }
 
   async function startKeyExchange() {
@@ -207,10 +241,13 @@
         showState('pending');
         btnStart.textContent = t('btn.start');
         btnStart.disabled = false;
+
+        // Clear clipboard after 30 seconds
+        scheduleClipboardClear(30000);
       }
     } catch (err) {
       console.error('[StealthChat] Key exchange error:', err);
-      btnStart.textContent = t('btn.start');
+      btnStart.textContent = SCI18n.t('btn.start');
       btnStart.disabled = false;
     }
   }
@@ -244,8 +281,6 @@
     notifyContentScript('sessionUpdated');
   }
 
-  // --- Session selector (multiple sessions on same URL) ---
-
   async function switchSession() {
     const selectedId = sessionSelect.value;
     const selected = sessionsForUrl.find(s => s.sessionId === selectedId);
@@ -262,23 +297,23 @@
 
   async function loadFingerprint(sessionId) {
     const t = SCI18n.t;
-    fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:#555">${t('fp.loading')}</div>`;
+    fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:var(--text-muted)">${esc(t('fp.loading'))}</div>`;
     try {
       const result = await sendBackground({ action: 'getFingerprint', sessionId });
       if (result?.fingerprint) {
         const groups = result.fingerprint.split(' ');
         fingerprintGrid.innerHTML = groups
-          .map(g => `<div class="fp-cell">${g}</div>`)
+          .map(g => `<div class="fp-cell">${esc(g)}</div>`)
           .join('');
       } else {
-        fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:#555">${t('fp.unavailable')}</div>`;
+        fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:var(--text-muted)">${esc(t('fp.unavailable'))}</div>`;
       }
     } catch {
-      fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:#ff6b7a">${t('fp.error')}</div>`;
+      fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:var(--danger)">${esc(t('fp.error'))}</div>`;
     }
   }
 
-  // --- Key rotation (PFS) ---
+  // --- Key rotation ---
 
   async function rotateKey() {
     if (!currentSession) return;
@@ -317,7 +352,7 @@
     const sessions = response?.sessions || [];
 
     if (sessions.length === 0) {
-      sessionsList.innerHTML = `<p class="empty-state">${t('session.none')}</p>`;
+      sessionsList.innerHTML = `<p class="empty-state">${esc(t('session.none'))}</p>`;
       return;
     }
 
@@ -395,6 +430,18 @@
     importFile.value = '';
   }
 
+  // --- Clipboard clearing ---
+
+  function scheduleClipboardClear(delayMs) {
+    setTimeout(async () => {
+      try {
+        await navigator.clipboard.writeText('');
+      } catch {
+        // Popup may be closed by then
+      }
+    }, delayMs);
+  }
+
   // --- Helpers ---
 
   async function getCurrentTab() {
@@ -413,6 +460,18 @@
     } catch {
       // Content script might not be injected
     }
+  }
+
+  async function getSettings() {
+    return await new Promise(resolve => {
+      chrome.storage.local.get('settings', result => resolve(result.settings || {}));
+    });
+  }
+
+  function saveSettings(settings) {
+    return new Promise(resolve => {
+      chrome.storage.local.set({ settings }, resolve);
+    });
   }
 
   // --- Start ---
