@@ -59,7 +59,7 @@ async function runTests() {
     console.log(`Wordlist (${lang.toUpperCase()}):`);
     const wl = SC_WORDLISTS[lang];
     for (const cat of SC_CATEGORY_ORDER) {
-      assert(wl[cat].length === 16, `${lang} ${cat} has 16 entries`);
+      assert(wl[cat].length === 32, `${lang} ${cat} has 32 entries`);
     }
   }
 
@@ -129,44 +129,47 @@ async function runTests() {
   assert(SC_DETECT_LANGUAGE('Hello world') === null, 'returns null for unknown');
 
   // --- Encoder round-trip for each language ---
-  const testBytes4 = new Uint8Array([0x01, 0x01, 0xA3, 0x5F]);
-  const testBytes12 = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  // 5 bytes per sentence now (8 words × 5 bits = 40 bits)
+  const testBytes5 = new Uint8Array([0x01, 0x01, 0xA3, 0x5F, 0xBC]);
+  const testBytes15 = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
   for (const lang of languages) {
     console.log(`\nEncoder (${lang.toUpperCase()}):`);
     SC_SET_ENCODING_LANG(lang);
 
-    const encoded4 = SCEncoder.encode(testBytes4);
-    assert(typeof encoded4 === 'string', `${lang} encode returns string`);
-    assert(encoded4.includes('.'), `${lang} encoded text contains periods`);
+    const encoded5 = SCEncoder.encode(testBytes5);
+    assert(typeof encoded5 === 'string', `${lang} encode returns string`);
+    assert(encoded5.includes('.'), `${lang} encoded text contains periods`);
 
-    const decoded4 = SCEncoder.decode(encoded4, 4);
-    assertEq(Array.from(decoded4), [0x01, 0x01, 0xA3, 0x5F], `${lang} decode round-trip (4 bytes)`);
+    const decoded5 = SCEncoder.decode(encoded5, 5);
+    assertEq(Array.from(decoded5), [0x01, 0x01, 0xA3, 0x5F, 0xBC], `${lang} decode round-trip (5 bytes)`);
 
-    assert(SCEncoder.looksEncoded(encoded4), `${lang} looksEncoded returns true`);
+    assert(SCEncoder.looksEncoded(encoded5), `${lang} looksEncoded returns true`);
 
-    // Multi-sentence
-    const encoded12 = SCEncoder.encode(testBytes12);
-    const decoded12 = SCEncoder.decode(encoded12, 12);
-    assertEq(Array.from(decoded12), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], `${lang} decode round-trip (12 bytes)`);
+    // Multi-sentence (15 bytes = 3 sentences × 5 bytes)
+    const encoded15 = SCEncoder.encode(testBytes15);
+    const sentences = encoded15.split('.').filter(s => s.trim());
+    assert(sentences.length === 3, `${lang} 15 bytes encodes to 3 sentences`);
+    const decoded15 = SCEncoder.decode(encoded15, 15);
+    assertEq(Array.from(decoded15), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], `${lang} decode round-trip (15 bytes)`);
 
     // Detected language matches
-    assert(SC_DETECT_LANGUAGE(encoded4) === lang, `${lang} encoded text detected as ${lang}`);
+    assert(SC_DETECT_LANGUAGE(encoded5) === lang, `${lang} encoded text detected as ${lang}`);
   }
 
   // Cross-language decoding
   console.log('\nCross-language decoding:');
   SC_SET_ENCODING_LANG('ru');
-  const ruEncoded = SCEncoder.encode(testBytes4);
+  const ruEncoded = SCEncoder.encode(testBytes5);
   SC_SET_ENCODING_LANG('en');
-  const crossDecoded = SCEncoder.decode(ruEncoded, 4);
-  assertEq(Array.from(crossDecoded), [0x01, 0x01, 0xA3, 0x5F], 'decode RU text with EN active');
+  const crossDecoded = SCEncoder.decode(ruEncoded, 5);
+  assertEq(Array.from(crossDecoded), [0x01, 0x01, 0xA3, 0x5F, 0xBC], 'decode RU text with EN active');
 
   SC_SET_ENCODING_LANG('de');
-  const deEncoded = SCEncoder.encode(testBytes4);
+  const deEncoded = SCEncoder.encode(testBytes5);
   SC_SET_ENCODING_LANG('uk');
-  const crossDecoded2 = SCEncoder.decode(deEncoded, 4);
-  assertEq(Array.from(crossDecoded2), [0x01, 0x01, 0xA3, 0x5F], 'decode DE text with UK active');
+  const crossDecoded2 = SCEncoder.decode(deEncoded, 5);
+  assertEq(Array.from(crossDecoded2), [0x01, 0x01, 0xA3, 0x5F, 0xBC], 'decode DE text with UK active');
 
   // looksEncoded negatives
   assert(!SCEncoder.looksEncoded('Hello world'), 'looksEncoded false for normal text');
