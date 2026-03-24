@@ -262,6 +262,9 @@
     });
   }
 
+  // Store original text before encryption so Ctrl+Enter can undo
+  const fieldOriginals = new WeakMap();
+
   async function encryptActiveField() {
     const el = document.activeElement;
     if (!el || !currentSession) return;
@@ -276,6 +279,14 @@
     text = text.trim();
     if (!text) return;
 
+    // If field contains encrypted text — restore original
+    if (SCEncoder.looksEncoded(text) && fieldOriginals.has(el)) {
+      const original = fieldOriginals.get(el);
+      fieldOriginals.delete(el);
+      setFieldValue(el, original);
+      return;
+    }
+
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'encrypt',
@@ -284,15 +295,10 @@
       });
 
       if (response?.encoded) {
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-          el.value = response.encoded;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        } else if (el.isContentEditable) {
-          el.innerText = response.encoded;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        // Save original so next Ctrl+Enter can undo
+        fieldOriginals.set(el, text);
+        setFieldValue(el, response.encoded);
 
-        // Auto-rotation happened — update local session reference
         if (response.rotated && response.newSessionId) {
           await refreshSession();
           showNotification(SCI18n.t('content.autoRotated') || `Key auto-rotated (#${response.rotationCounter})`);
@@ -303,6 +309,15 @@
     } catch (err) {
       console.error('[StealthChat] Encryption error:', err);
     }
+  }
+
+  function setFieldValue(el, value) {
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+      el.value = value;
+    } else if (el.isContentEditable) {
+      el.innerText = value;
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   // --- Scan existing content on page load ---
