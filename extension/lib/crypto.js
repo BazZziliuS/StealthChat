@@ -9,51 +9,33 @@ const SCCrypto = (() => {
   const ECDH_CURVE = 'P-256';
   const AES_KEY_BITS = 256;
   const IV_LENGTH = 12;
+  const TAG_LENGTH = 64; // 8 bytes (64 bits) — compact auth tag
   const HKDF_INFO = new TextEncoder().encode('StealthChat-v1');
-  const HKDF_SALT = new Uint8Array(32); // Zero salt — acceptable for ECDH-derived input
+  const HKDF_SALT = new Uint8Array(32);
 
-  /**
-   * Generate an ECDH key pair.
-   * @returns {Promise<CryptoKeyPair>}
-   */
+  // --- Key management ---
+
   async function generateKeyPair() {
     return crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: ECDH_CURVE },
-      true, // extractable — needed for export/storage
+      true,
       ['deriveKey', 'deriveBits']
     );
   }
 
-  /**
-   * Export a public key to raw bytes (65 bytes for P-256 uncompressed).
-   * @param {CryptoKey} publicKey
-   * @returns {Promise<Uint8Array>}
-   */
   async function exportPublicKeyRaw(publicKey) {
     const raw = await crypto.subtle.exportKey('raw', publicKey);
     return new Uint8Array(raw);
   }
 
-  /**
-   * Import a public key from raw bytes.
-   * @param {Uint8Array} rawBytes
-   * @returns {Promise<CryptoKey>}
-   */
   async function importPublicKeyRaw(rawBytes) {
     return crypto.subtle.importKey(
-      'raw',
-      rawBytes,
+      'raw', rawBytes,
       { name: 'ECDH', namedCurve: ECDH_CURVE },
-      true,
-      []
+      true, []
     );
   }
 
-  /**
-   * Export a key pair to JWK format (for storage).
-   * @param {CryptoKeyPair} keyPair
-   * @returns {Promise<{publicKey: object, privateKey: object}>}
-   */
   async function exportKeyPairJWK(keyPair) {
     const [pub, priv] = await Promise.all([
       crypto.subtle.exportKey('jwk', keyPair.publicKey),
@@ -62,11 +44,6 @@ const SCCrypto = (() => {
     return { publicKey: pub, privateKey: priv };
   }
 
-  /**
-   * Import a key pair from JWK format.
-   * @param {{publicKey: object, privateKey: object}} jwkPair
-   * @returns {Promise<CryptoKeyPair>}
-   */
   async function importKeyPairJWK(jwkPair) {
     const [publicKey, privateKey] = await Promise.all([
       crypto.subtle.importKey('jwk', jwkPair.publicKey,
@@ -77,62 +54,36 @@ const SCCrypto = (() => {
     return { publicKey, privateKey };
   }
 
-  /**
-   * Derive a shared secret from ECDH, then derive AES-256 key via HKDF.
-   * @param {CryptoKey} privateKey - Our private key
-   * @param {CryptoKey} peerPublicKey - Peer's public key
-   * @returns {Promise<CryptoKey>} AES-GCM key
-   */
   async function deriveSharedKey(privateKey, peerPublicKey) {
-    // Step 1: ECDH shared secret → raw bits
     const sharedBits = await crypto.subtle.deriveBits(
       { name: 'ECDH', public: peerPublicKey },
-      privateKey,
-      256
+      privateKey, 256
     );
-
-    // Step 2: Import shared bits as HKDF key material
     const hkdfKey = await crypto.subtle.importKey(
       'raw', sharedBits, 'HKDF', false, ['deriveKey']
     );
-
-    // Step 3: HKDF → AES-256-GCM key
     return crypto.subtle.deriveKey(
       { name: 'HKDF', hash: 'SHA-256', salt: HKDF_SALT, info: HKDF_INFO },
       hkdfKey,
       { name: 'AES-GCM', length: AES_KEY_BITS },
-      true, // extractable for export/storage
+      true,
       ['encrypt', 'decrypt']
     );
   }
 
-  /**
-   * Compute session ID: first 4 bytes of SHA-256(exported AES key).
-   * @param {CryptoKey} aesKey
-   * @returns {Promise<string>} 8-char hex string
-   */
   async function computeSessionId(aesKey) {
     const rawKey = await crypto.subtle.exportKey('raw', aesKey);
     const hash = await crypto.subtle.digest('SHA-256', rawKey);
-    const bytes = new Uint8Array(hash).slice(0, 4);
+    // 2 bytes for v2 protocol (4 hex chars)
+    const bytes = new Uint8Array(hash).slice(0, 2);
     return SCProtocol.bytesToHex(bytes);
   }
 
-  /**
-   * Export AES key to base64 (for storage).
-   * @param {CryptoKey} aesKey
-   * @returns {Promise<string>}
-   */
   async function exportAESKey(aesKey) {
     const raw = await crypto.subtle.exportKey('raw', aesKey);
     return arrayBufferToBase64(raw);
   }
 
-  /**
-   * Import AES key from base64.
-   * @param {string} base64Key
-   * @returns {Promise<CryptoKey>}
-   */
   async function importAESKey(base64Key) {
     const raw = base64ToArrayBuffer(base64Key);
     return crypto.subtle.importKey(
@@ -143,128 +94,135 @@ const SCCrypto = (() => {
     );
   }
 
-  /**
-   * Encrypt plaintext with AES-256-GCM.
-   * @param {string} plaintext - UTF-8 text
-   * @param {CryptoKey} aesKey
-   * @returns {Promise<{iv: Uint8Array, ciphertext: Uint8Array}>}
-   */
+  // --- Compression (built-in CompressionStream) ---
+
+  async function compress(data) {
+    if (typeof CompressionStream === 'undefined') return null;
+    try {
+      const cs = new CompressionStream('deflate-raw');
+      const writer = cs.writable.getWriter();
+      writer.write(data);
+      writer.close();
+      return await streamToBytes(cs.readable);
+    } catch {
+      return null;
+    }
+  }
+
+  async function decompress(data) {
+    if (typeof DecompressionStream === 'undefined') return null;
+    try {
+      const ds = new DecompressionStream('deflate-raw');
+      const writer = ds.writable.getWriter();
+      writer.write(data);
+      writer.close();
+      return await streamToBytes(ds.readable);
+    } catch {
+      return null;
+    }
+  }
+
+  async function streamToBytes(readable) {
+    const reader = readable.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return result;
+  }
+
+  // --- Encrypt / Decrypt ---
+
   async function encrypt(plaintext, aesKey) {
     const encoded = new TextEncoder().encode(plaintext);
 
-    // Compress with pako if available, otherwise use raw
-    let data;
-    if (typeof pako !== 'undefined') {
-      data = pako.deflate(encoded);
-    } else {
-      data = encoded;
+    // Try compression — use only if it actually shrinks the data
+    let data = encoded;
+    let compressed = false;
+    const deflated = await compress(encoded);
+    if (deflated && deflated.length < encoded.length) {
+      data = deflated;
+      compressed = true;
     }
 
     const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
     const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv, tagLength: TAG_LENGTH },
       aesKey,
       data
     );
 
-    return { iv, ciphertext: new Uint8Array(encrypted) };
+    return { iv, ciphertext: new Uint8Array(encrypted), compressed };
   }
 
-  /**
-   * Decrypt ciphertext with AES-256-GCM.
-   * @param {Uint8Array} ciphertext - Encrypted data with auth tag
-   * @param {Uint8Array} iv - 12-byte IV
-   * @param {CryptoKey} aesKey
-   * @returns {Promise<string>} Decrypted UTF-8 text
-   * @throws {Error} If auth tag verification fails
-   */
-  async function decrypt(ciphertext, iv, aesKey) {
+  async function decrypt(ciphertext, iv, aesKey, isCompressed) {
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
+      { name: 'AES-GCM', iv, tagLength: TAG_LENGTH },
       aesKey,
       ciphertext
     );
 
     let data = new Uint8Array(decrypted);
 
-    // Decompress with pako if available
-    if (typeof pako !== 'undefined') {
-      try {
-        data = pako.inflate(data);
-      } catch (e) {
-        // Data might not be compressed (e.g., from a version without pako)
-      }
+    if (isCompressed) {
+      const inflated = await decompress(data);
+      if (inflated) data = inflated;
     }
 
     return new TextDecoder().decode(data);
   }
 
-  /**
-   * Full pipeline: plaintext → encrypted packet → encoded sentences.
-   * Prepends 2-byte length prefix so decoder can strip padding.
-   * @param {string} plaintext
-   * @param {CryptoKey} aesKey
-   * @param {string} sessionId - 8-char hex
-   * @returns {Promise<string>} Encoded sentences
-   */
+  // --- Full pipeline ---
+
   async function encryptAndEncode(plaintext, aesKey, sessionId) {
-    const { iv, ciphertext } = await encrypt(plaintext, aesKey);
-    const packet = SCProtocol.buildEncryptedPacket(sessionId, iv, ciphertext);
-    // Prepend 2-byte big-endian length so we can strip encoder padding on decode
-    const withLength = new Uint8Array(2 + packet.length);
-    withLength[0] = (packet.length >> 8) & 0xFF;
-    withLength[1] = packet.length & 0xFF;
-    withLength.set(packet, 2);
+    const { iv, ciphertext, compressed } = await encrypt(plaintext, aesKey);
+    const packet = SCProtocol.buildEncryptedPacket(sessionId, iv, ciphertext, compressed);
+    // 1-byte length prefix (max 255 bytes per packet — sufficient for messages)
+    const withLength = new Uint8Array(1 + packet.length);
+    withLength[0] = packet.length & 0xFF;
+    withLength.set(packet, 1);
     return SCEncoder.encode(withLength);
   }
 
-  /**
-   * Full pipeline: encoded sentences → decrypt → plaintext.
-   * @param {string} encodedText
-   * @param {CryptoKey} aesKey
-   * @returns {Promise<string>} Decrypted plaintext
-   */
   async function decodeAndDecrypt(encodedText, aesKey) {
     const allBytes = SCEncoder.decode(encodedText);
-    if (!allBytes || allBytes.length < 2) throw new Error('Failed to decode sentences');
+    if (!allBytes || allBytes.length < 1) throw new Error('Failed to decode sentences');
 
-    // Read 2-byte length prefix and extract exact packet bytes
-    const packetLength = (allBytes[0] << 8) | allBytes[1];
-    const packetBytes = allBytes.slice(2, 2 + packetLength);
+    // 1-byte length prefix
+    const packetLength = allBytes[0];
+    const packetBytes = allBytes.slice(1, 1 + packetLength);
 
     const packet = SCProtocol.parsePacket(packetBytes);
     if (!packet || packet.type !== SCProtocol.MessageType.ENCRYPTED_TEXT) {
       throw new Error('Invalid packet');
     }
 
-    return decrypt(packet.ciphertext, packet.iv, aesKey);
+    return decrypt(packet.ciphertext, packet.iv, aesKey, packet.compressed);
   }
 
-  /**
-   * Encode a key exchange message as sentences.
-   * @param {Uint8Array} publicKeyRaw
-   * @param {boolean} isResponse
-   * @returns {string}
-   */
   function encodeKeyExchange(publicKeyRaw, isResponse) {
     const packet = SCProtocol.buildKeyExchangePacket(publicKeyRaw, isResponse);
-    const withLength = new Uint8Array(2 + packet.length);
-    withLength[0] = (packet.length >> 8) & 0xFF;
-    withLength[1] = packet.length & 0xFF;
-    withLength.set(packet, 2);
+    const withLength = new Uint8Array(1 + packet.length);
+    withLength[0] = packet.length & 0xFF;
+    withLength.set(packet, 1);
     return SCEncoder.encode(withLength);
   }
 
-  /**
-   * Decode sentences to get the raw packet (stripping length prefix and padding).
-   * @param {string} encodedText
-   * @returns {Uint8Array|null}
-   */
   function decodePacket(encodedText) {
     const allBytes = SCEncoder.decode(encodedText);
-    if (!allBytes || allBytes.length < 2) return null;
-    const packetLength = (allBytes[0] << 8) | allBytes[1];
-    return allBytes.slice(2, 2 + packetLength);
+    if (!allBytes || allBytes.length < 1) return null;
+    const packetLength = allBytes[0];
+    return allBytes.slice(1, 1 + packetLength);
   }
 
   // --- Base64 helpers ---

@@ -175,24 +175,32 @@ async function runTests() {
   assert(!SCEncoder.looksEncoded('Hello world'), 'looksEncoded false for normal text');
   assert(!SCEncoder.looksEncoded(''), 'looksEncoded false for empty');
 
-  // --- Protocol ---
-  console.log('\nProtocol:');
+  // --- Protocol v2 ---
+  console.log('\nProtocol v2:');
   const iv = new Uint8Array(12).fill(0xAA);
   const ciphertext = new Uint8Array([1, 2, 3, 4, 5]);
-  const packet = SCProtocol.buildEncryptedPacket('a3b5c7d9', iv, ciphertext);
-  assert(packet[0] === 0x01, 'packet version is 0x01');
-  assert(packet[1] === 0x01, 'packet type is ENCRYPTED_TEXT');
-  assert(packet.length === 18 + 5, 'packet length = header + ciphertext');
+  const packet = SCProtocol.buildEncryptedPacket('a3b5', iv, ciphertext, false);
+  assert(packet[0] === 0x02, 'packet version is 0x02');
+  assert((packet[1] & 0x0F) === 0x01, 'packet type is ENCRYPTED_TEXT');
+  assert(!(packet[1] & 0x80), 'compressed flag is off');
+  assert(packet.length === 16 + 5, 'packet length = header(16) + ciphertext');
 
   const parsed = SCProtocol.parsePacket(packet);
   assert(parsed !== null, 'parsePacket succeeds');
-  assertEq(parsed.sessionId, 'a3b5c7d9', 'parsed session ID');
+  assertEq(parsed.sessionId, 'a3b5', 'parsed session ID (4 hex chars)');
+  assertEq(parsed.compressed, false, 'parsed compressed flag');
+
+  // Compressed packet
+  const compPacket = SCProtocol.buildEncryptedPacket('a3b5', iv, ciphertext, true);
+  assert(!!(compPacket[1] & 0x80), 'compressed flag is on');
+  const compParsed = SCProtocol.parsePacket(compPacket);
+  assertEq(compParsed.compressed, true, 'parsed compressed=true');
 
   const kexPacket = SCProtocol.buildKeyExchangePacket(new Uint8Array(65).fill(0x04), false);
   assert(kexPacket[1] === 0x02, 'kex type is REQUEST');
 
-  assert(SCProtocol.parsePacket(new Uint8Array([0x02, 0x01])) === null, 'reject wrong version');
-  assert(SCProtocol.parsePacket(new Uint8Array([0x01, 0x05])) === null, 'reject unknown type');
+  assert(SCProtocol.parsePacket(new Uint8Array([0x01, 0x01])) === null, 'reject old version');
+  assert(SCProtocol.parsePacket(new Uint8Array([0x02, 0x05])) === null, 'reject unknown type');
 
   // --- Crypto ---
   console.log('\nCrypto:');
@@ -209,10 +217,12 @@ async function runTests() {
   const sessionIdA = await SCCrypto.computeSessionId(sharedKeyA);
   const sessionIdB = await SCCrypto.computeSessionId(sharedKeyB);
   assertEq(sessionIdA, sessionIdB, 'both sides derive same session ID');
+  assert(sessionIdA.length === 4, 'session ID is 4 hex chars (v2)');
 
   const plaintext = 'Hello StealthChat! Привет мир! 🔒 Тест українською. Auf Deutsch!';
-  const { iv: encIv, ciphertext: encCiphertext } = await SCCrypto.encrypt(plaintext, sharedKeyA);
-  const decrypted = await SCCrypto.decrypt(encCiphertext, encIv, sharedKeyB);
+  const { iv: encIv, ciphertext: encCiphertext, compressed: wasCompressed } = await SCCrypto.encrypt(plaintext, sharedKeyA);
+  assert(typeof wasCompressed === 'boolean', 'encrypt returns compressed flag');
+  const decrypted = await SCCrypto.decrypt(encCiphertext, encIv, sharedKeyB, wasCompressed);
   assertEq(decrypted, plaintext, 'encrypt/decrypt round-trip');
 
   // Full pipeline per language
