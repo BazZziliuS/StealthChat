@@ -65,6 +65,39 @@ body {
   letter-spacing: 0.3px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lang-select {
+  padding: 2px 4px;
+  background: #1a1a2e;
+  color: #888;
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+  min-width: 36px;
+  line-height: 1.4;
+}
+
+.lang-select:focus {
+  outline: none;
+  border-color: #00d4aa;
+  color: #ccc;
+}
+
+.lang-select:hover {
+  color: #ccc;
+  border-color: #3a3a5a;
+}
+
 .version {
   font-size: 10px;
   color: #555;

@@ -3,7 +3,14 @@
  * Handles crypto operations, key management, and session storage.
  */
 
-importScripts('/lib/wordlist.js', '/lib/encoder.js', '/lib/protocol.js', '/lib/crypto.js');
+importScripts('/lib/i18n.js', '/lib/wordlist.js', '/lib/encoder.js', '/lib/protocol.js', '/lib/crypto.js');
+
+// Load language setting on startup
+(async () => {
+  const data = await loadData('settings');
+  const lang = data?.language || 'en';
+  SC_SET_ENCODING_LANG(lang);
+})();
 
 // --- Message handler ---
 
@@ -45,9 +52,23 @@ async function handleMessage(msg, sender) {
       return handleGetSessionsForUrl(msg);
     case 'rotateKey':
       return handleRotateKey(msg);
+    case 'setLanguage':
+      return handleSetLanguage(msg);
     default:
       return { error: 'Unknown action: ' + msg.action };
   }
+}
+
+// --- Language ---
+
+async function handleSetLanguage({ language }) {
+  if (SC_SET_ENCODING_LANG(language)) {
+    const settings = (await loadData('settings')) || {};
+    settings.language = language;
+    await saveData('settings', settings);
+    return { ok: true };
+  }
+  return { error: 'Unsupported language: ' + language };
 }
 
 // --- Encryption / Decryption ---
@@ -337,10 +358,42 @@ async function handleExportSessions() {
 async function handleImportSessions({ data }) {
   try {
     const imported = JSON.parse(data);
+    if (typeof imported !== 'object' || imported === null || Array.isArray(imported)) {
+      return { error: 'Invalid format' };
+    }
+
+    // Validate and sanitize each session
+    const sanitized = {};
+    for (const [id, session] of Object.entries(imported)) {
+      // Skip prototype pollution keys
+      if (id === '__proto__' || id === 'constructor' || id === 'prototype') continue;
+      // Session ID must be hex string
+      if (typeof id !== 'string' || !/^[a-f0-9]+$/.test(id)) continue;
+      if (typeof session !== 'object' || session === null) continue;
+      // Validate required fields
+      if (typeof session.symmetricKey !== 'string') continue;
+      if (typeof session.urlPattern !== 'string') continue;
+
+      sanitized[id] = {
+        label: typeof session.label === 'string' ? session.label.slice(0, 256) : '',
+        urlPattern: session.urlPattern,
+        symmetricKey: session.symmetricKey,
+        peerPublicKey: session.peerPublicKey || null,
+        enabled: session.enabled !== false,
+        createdAt: typeof session.createdAt === 'string' ? session.createdAt : new Date().toISOString(),
+        rotationCounter: typeof session.rotationCounter === 'number' ? session.rotationCounter : 0,
+        previousKeys: Array.isArray(session.previousKeys) ? session.previousKeys.slice(0, 5) : []
+      };
+    }
+
+    if (Object.keys(sanitized).length === 0) {
+      return { error: 'No valid sessions found' };
+    }
+
     const sessions = await loadData('sessions') || {};
-    Object.assign(sessions, imported);
+    Object.assign(sessions, sanitized);
     await saveData('sessions', sessions);
-    return { ok: true, count: Object.keys(imported).length };
+    return { ok: true, count: Object.keys(sanitized).length };
   } catch (e) {
     return { error: 'Invalid JSON' };
   }

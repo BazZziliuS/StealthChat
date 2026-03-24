@@ -12,11 +12,19 @@ globalThis.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
 globalThis.atob = (b64) => Buffer.from(b64, 'base64').toString('binary');
 
 // Load modules — assign exports to globals (simulating browser script loading)
+const i18nExports = require('../extension/lib/i18n.js');
+globalThis.SCI18n = i18nExports;
+
 const wordlistExports = require('../extension/lib/wordlist.js');
-globalThis.SC_WORDLIST = wordlistExports.SC_WORDLIST;
+globalThis.SC_WORDLISTS = wordlistExports.SC_WORDLISTS;
 globalThis.SC_CATEGORY_ORDER = wordlistExports.SC_CATEGORY_ORDER;
-globalThis.SC_REVERSE_LOOKUP = wordlistExports.SC_REVERSE_LOOKUP;
+globalThis.SC_REVERSE_LOOKUPS = wordlistExports.SC_REVERSE_LOOKUPS;
 globalThis.SC_MARKER_WORD = wordlistExports.SC_MARKER_WORD;
+globalThis.SC_SET_ENCODING_LANG = wordlistExports.SC_SET_ENCODING_LANG;
+globalThis.SC_GET_ENCODING_LANG = wordlistExports.SC_GET_ENCODING_LANG;
+globalThis.SC_GET_WORDLIST = wordlistExports.SC_GET_WORDLIST;
+globalThis.SC_GET_REVERSE_LOOKUP = wordlistExports.SC_GET_REVERSE_LOOKUP;
+globalThis.SC_DETECT_LANGUAGE = wordlistExports.SC_DETECT_LANGUAGE;
 
 globalThis.SCEncoder = require('../extension/lib/encoder.js');
 globalThis.SCProtocol = require('../extension/lib/protocol.js');
@@ -48,20 +56,40 @@ async function runTests() {
   console.log('\n=== StealthChat Tests ===\n');
 
   // --- Wordlist ---
-  console.log('Wordlist:');
-  assert(SC_WORDLIST.names.length === 16, 'names has 16 entries');
-  assert(SC_WORDLIST.adverbs.length === 16, 'adverbs has 16 entries');
-  assert(SC_WORDLIST.verbs.length === 16, 'verbs has 16 entries');
-  assert(SC_WORDLIST.articles.length === 16, 'articles has 16 entries');
-  assert(SC_WORDLIST.adjectives.length === 16, 'adjectives has 16 entries');
-  assert(SC_WORDLIST.nouns.length === 16, 'nouns has 16 entries');
-  assert(SC_WORDLIST.prepositions.length === 16, 'prepositions has 16 entries');
-  assert(SC_WORDLIST.timeWords.length === 16, 'timeWords has 16 entries');
+  console.log('Wordlist (English):');
+  const enWordlist = SC_WORDLISTS.en;
+  assert(enWordlist.names.length === 16, 'EN names has 16 entries');
+  assert(enWordlist.adverbs.length === 16, 'EN adverbs has 16 entries');
+  assert(enWordlist.verbs.length === 16, 'EN verbs has 16 entries');
+  assert(enWordlist.articles.length === 16, 'EN articles has 16 entries');
+  assert(enWordlist.adjectives.length === 16, 'EN adjectives has 16 entries');
+  assert(enWordlist.nouns.length === 16, 'EN nouns has 16 entries');
+  assert(enWordlist.prepositions.length === 16, 'EN prepositions has 16 entries');
+  assert(enWordlist.timeWords.length === 16, 'EN timeWords has 16 entries');
+
+  console.log('\nWordlist (Russian):');
+  const ruWordlist = SC_WORDLISTS.ru;
+  assert(ruWordlist.names.length === 16, 'RU names has 16 entries');
+  assert(ruWordlist.adverbs.length === 16, 'RU adverbs has 16 entries');
+  assert(ruWordlist.verbs.length === 16, 'RU verbs has 16 entries');
+  assert(ruWordlist.articles.length === 16, 'RU articles has 16 entries');
+  assert(ruWordlist.adjectives.length === 16, 'RU adjectives has 16 entries');
+  assert(ruWordlist.nouns.length === 16, 'RU nouns has 16 entries');
+  assert(ruWordlist.prepositions.length === 16, 'RU prepositions has 16 entries');
+  assert(ruWordlist.timeWords.length === 16, 'RU timeWords has 16 entries');
+
   assert(SC_CATEGORY_ORDER.length === 8, 'category order has 8 entries');
   assert(SC_MARKER_WORD === 'alice', 'marker word is "alice"');
 
-  // --- Encoder ---
-  console.log('\nEncoder:');
+  // Language detection
+  console.log('\nLanguage Detection:');
+  assert(SC_DETECT_LANGUAGE('Alice slowly brought the bright bridge about Monday.') === 'en', 'detects English');
+  assert(SC_DETECT_LANGUAGE('Алиса быстро принес этот яркий мост через понедельник.') === 'ru', 'detects Russian');
+  assert(SC_DETECT_LANGUAGE('Hello world') === null, 'returns null for unknown');
+
+  // --- Encoder (English) ---
+  console.log('\nEncoder (English):');
+  SC_SET_ENCODING_LANG('en');
 
   // Encode/decode round-trip for 4 bytes
   const testBytes4 = new Uint8Array([0x01, 0x01, 0xA3, 0x5F]);
@@ -95,6 +123,31 @@ async function runTests() {
   assert(!SCEncoder.looksEncoded('Hello world'), 'looksEncoded returns false for normal text');
   assert(!SCEncoder.looksEncoded('Alice went to the store'), 'looksEncoded false for non-matching structure');
   assert(!SCEncoder.looksEncoded(''), 'looksEncoded false for empty string');
+
+  // --- Encoder (Russian) ---
+  console.log('\nEncoder (Russian):');
+  SC_SET_ENCODING_LANG('ru');
+
+  const ruEncoded4 = SCEncoder.encode(testBytes4);
+  assert(typeof ruEncoded4 === 'string', 'RU encode returns string');
+  assert(ruEncoded4.includes('.'), 'RU encoded text contains periods');
+  assert(ruEncoded4.startsWith('Алиса'), 'RU byte 0x0_ starts with Алиса');
+
+  const ruDecoded4 = SCEncoder.decode(ruEncoded4, 4);
+  assertEq(Array.from(ruDecoded4), [0x01, 0x01, 0xA3, 0x5F], 'RU decode round-trip (4 bytes)');
+
+  // RU looksEncoded
+  assert(SCEncoder.looksEncoded(ruEncoded4), 'looksEncoded returns true for RU encoded text');
+
+  // Cross-language: encode in RU, decode should auto-detect
+  const ruEncoded12 = SCEncoder.encode(testBytes12);
+  const ruDecoded12 = SCEncoder.decode(ruEncoded12, 12);
+  assertEq(Array.from(ruDecoded12), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'RU decode round-trip (12 bytes)');
+
+  // Switch back to EN and decode RU text (auto-detection)
+  SC_SET_ENCODING_LANG('en');
+  const crossDecoded = SCEncoder.decode(ruEncoded4, 4);
+  assertEq(Array.from(crossDecoded), [0x01, 0x01, 0xA3, 0x5F], 'cross-lang: EN active, decodes RU text');
 
   // --- Protocol ---
   console.log('\nProtocol:');
@@ -178,23 +231,41 @@ async function runTests() {
   const decrypted = await SCCrypto.decrypt(encCiphertext, encIv, sharedKeyB);
   assertEq(decrypted, plaintext, 'decrypt recovers plaintext (cross-key)');
 
-  // Full pipeline: encryptAndEncode → decodeAndDecrypt
-  console.log('\nFull Pipeline:');
+  // Full pipeline: encryptAndEncode → decodeAndDecrypt (English)
+  console.log('\nFull Pipeline (English):');
+  SC_SET_ENCODING_LANG('en');
   const message = 'This is a secret message! Секретное сообщение 🕵️';
   const sessionId = sessionIdA;
 
   const encodedMsg = await SCCrypto.encryptAndEncode(message, sharedKeyA, sessionId);
   assert(typeof encodedMsg === 'string', 'encryptAndEncode returns string');
   assert(SCEncoder.looksEncoded(encodedMsg), 'encoded message passes looksEncoded check');
+  assert(SC_DETECT_LANGUAGE(encodedMsg) === 'en', 'pipeline output detected as English');
 
-  // Decode and check session ID matches (strip 2-byte length prefix)
   const msgPacket = SCCrypto.decodePacket(encodedMsg);
   const msgSessionId = SCProtocol.extractSessionId(msgPacket);
   assertEq(msgSessionId, sessionId, 'encoded message contains correct session ID');
 
-  // Full decrypt
   const decryptedMsg = await SCCrypto.decodeAndDecrypt(encodedMsg, sharedKeyB);
-  assertEq(decryptedMsg, message, 'full pipeline round-trip preserves message');
+  assertEq(decryptedMsg, message, 'full pipeline round-trip preserves message (EN)');
+
+  // Full pipeline: encryptAndEncode → decodeAndDecrypt (Russian)
+  console.log('\nFull Pipeline (Russian):');
+  SC_SET_ENCODING_LANG('ru');
+  const ruMessage = 'Тестовое секретное сообщение! 🔐';
+
+  const ruEncodedMsg = await SCCrypto.encryptAndEncode(ruMessage, sharedKeyA, sessionId);
+  assert(typeof ruEncodedMsg === 'string', 'RU encryptAndEncode returns string');
+  assert(SCEncoder.looksEncoded(ruEncodedMsg), 'RU encoded message passes looksEncoded check');
+  assert(SC_DETECT_LANGUAGE(ruEncodedMsg) === 'ru', 'pipeline output detected as Russian');
+
+  const ruDecryptedMsg = await SCCrypto.decodeAndDecrypt(ruEncodedMsg, sharedKeyB);
+  assertEq(ruDecryptedMsg, ruMessage, 'full pipeline round-trip preserves message (RU)');
+
+  // Cross-language: encode in RU, decode with EN active
+  SC_SET_ENCODING_LANG('en');
+  const crossDecryptedMsg = await SCCrypto.decodeAndDecrypt(ruEncodedMsg, sharedKeyB);
+  assertEq(crossDecryptedMsg, ruMessage, 'cross-lang: decode RU message with EN active');
 
   // Wrong key should fail
   const keyPairC = await SCCrypto.generateKeyPair();
@@ -205,6 +276,14 @@ async function runTests() {
   } catch {
     assert(true, 'wrong key throws decryption error');
   }
+
+  // --- i18n ---
+  console.log('\ni18n:');
+  SCI18n.setLanguage('en');
+  assertEq(SCI18n.t('status.active'), 'Encryption active', 'EN translation works');
+  SCI18n.setLanguage('ru');
+  assertEq(SCI18n.t('status.active'), 'Шифрование активно', 'RU translation works');
+  assertEq(SCI18n.getAvailableLanguages().sort(), ['en', 'ru'], 'available languages');
 
   // --- Summary ---
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);

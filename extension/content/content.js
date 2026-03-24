@@ -11,10 +11,24 @@
   // --- Initialization ---
 
   async function init() {
+    await loadLanguageSetting();
     await refreshSession();
     setupMutationObserver();
     setupHotkeyListener();
     scanExistingContent();
+  }
+
+  async function loadLanguageSetting() {
+    try {
+      const data = await new Promise(resolve => {
+        chrome.storage.local.get('settings', result => resolve(result.settings));
+      });
+      const lang = data?.language || 'en';
+      SCI18n.setLanguage(lang);
+      SC_SET_ENCODING_LANG(lang);
+    } catch {
+      // Default to English
+    }
   }
 
   async function refreshSession() {
@@ -78,7 +92,6 @@
   }
 
   async function handleEncodedText(text, element) {
-    // Try to decode to check packet type (strip 2-byte length prefix)
     const packetBytes = SCCrypto.decodePacket(text);
     if (!packetBytes || !SCProtocol.isValidPacket(packetBytes)) return;
 
@@ -104,13 +117,15 @@
           sessionId
         });
 
+        const t = SCI18n.t;
+
         if (response?.text) {
           const time = new Date().toLocaleTimeString();
           element.dataset.scOriginal = text;
           element.textContent = response.text;
           element.classList.add('sc-decrypted');
           element.appendChild(createTooltip({
-            status: 'Decrypted successfully',
+            status: t('content.decrypted'),
             session: sessionId,
             cipher: 'AES-256-GCM',
             time
@@ -118,7 +133,7 @@
         } else if (response?.error) {
           element.classList.add('sc-error');
           element.appendChild(createTooltip({
-            status: 'Decryption failed',
+            status: t('content.decryptFailed'),
             error: response.error,
             session: sessionId
           }));
@@ -140,21 +155,20 @@
       if (response?.status === 'session_created') {
         await refreshSession();
 
-        // Hide the key exchange message
+        const t = SCI18n.t;
+
         element.dataset.scOriginal = element.textContent;
         element.textContent = type === SCProtocol.MessageType.KEY_EXCHANGE_REQUEST
-          ? '🔐 Key exchange request (processed)'
-          : '🔐 Key exchange complete';
+          ? t('content.keyRequest')
+          : t('content.keyComplete');
         element.classList.add('sc-key-exchange');
 
-        // If we received a request, we need to send our response
         if (response.encoded) {
-          // Auto-copy response to clipboard
           try {
             await navigator.clipboard.writeText(response.encoded);
-            showNotification('Key received! Response copied to clipboard — paste and send it.');
+            showNotification(t('content.keyReceived'));
           } catch {
-            showNotification('Key received! Copy the response from the extension popup.');
+            showNotification(t('content.keyReceivedManual'));
           }
         }
       }
@@ -166,34 +180,45 @@
   // --- Tooltip ---
 
   function createTooltip(info) {
+    const t = SCI18n.t;
     const tooltip = document.createElement('span');
     tooltip.className = 'sc-tooltip';
 
-    const rows = [];
-
     if (info.status) {
       const isOk = !info.error;
-      rows.push(`<div class="sc-tooltip-status">${isOk ? '✓' : '✗'} ${info.status}</div>`);
+      const statusEl = document.createElement('div');
+      statusEl.className = 'sc-tooltip-status';
+      statusEl.textContent = (isOk ? '✓' : '✗') + ' ' + info.status;
+      tooltip.appendChild(statusEl);
     }
     if (info.session) {
-      rows.push(tooltipRow('Session', info.session));
+      tooltip.appendChild(tooltipRow(t('tooltip.session'), info.session));
     }
     if (info.cipher) {
-      rows.push(tooltipRow('Cipher', info.cipher));
+      tooltip.appendChild(tooltipRow(t('tooltip.cipher'), info.cipher));
     }
     if (info.time) {
-      rows.push(tooltipRow('Decrypted', info.time));
+      tooltip.appendChild(tooltipRow(t('tooltip.decrypted'), info.time));
     }
     if (info.error) {
-      rows.push(tooltipRow('Error', info.error));
+      tooltip.appendChild(tooltipRow(t('tooltip.error'), info.error));
     }
 
-    tooltip.innerHTML = rows.join('');
     return tooltip;
   }
 
   function tooltipRow(label, value) {
-    return `<div class="sc-tooltip-row"><span class="sc-tooltip-label">${label}:</span><span class="sc-tooltip-value">${value}</span></div>`;
+    const row = document.createElement('div');
+    row.className = 'sc-tooltip-row';
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'sc-tooltip-label';
+    labelSpan.textContent = label + ':';
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'sc-tooltip-value';
+    valueSpan.textContent = value;
+    row.appendChild(labelSpan);
+    row.appendChild(valueSpan);
+    return row;
   }
 
   // --- Click to toggle original ciphertext ---
@@ -201,12 +226,10 @@
   document.addEventListener('click', (e) => {
     const el = e.target;
 
-    // Click on a decrypted message element (or near the lock icon area)
     const decrypted = el.closest('.sc-decrypted');
     if (!decrypted || !decrypted.dataset.scOriginal) return;
 
     if (decrypted.dataset.scShowingOriginal === '1') {
-      // Restore decrypted text
       const original = decrypted.dataset.scOriginal;
       const tooltip = decrypted.querySelector('.sc-tooltip');
       decrypted.textContent = decrypted.dataset.scDecryptedText;
@@ -215,7 +238,6 @@
       decrypted.dataset.scShowingOriginal = '0';
       if (tooltip) decrypted.appendChild(tooltip);
     } else {
-      // Show original ciphertext
       decrypted.dataset.scDecryptedText = decrypted.childNodes[0]?.textContent || '';
       const tooltip = decrypted.querySelector('.sc-tooltip');
       decrypted.textContent = decrypted.dataset.scOriginal;
@@ -266,7 +288,7 @@
           el.dispatchEvent(new Event('input', { bubbles: true }));
         }
       } else if (response?.error) {
-        showNotification('Encryption error: ' + response.error);
+        showNotification(SCI18n.t('content.encryptError') + response.error);
       }
     } catch (err) {
       console.error('[StealthChat] Encryption error:', err);
@@ -298,10 +320,15 @@
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.action === 'sessionUpdated') {
       refreshSession();
+      loadLanguageSetting();
       sendResponse({ ok: true });
     }
     if (msg.action === 'rescanPage') {
       scanExistingContent();
+      sendResponse({ ok: true });
+    }
+    if (msg.action === 'languageChanged') {
+      loadLanguageSetting();
       sendResponse({ ok: true });
     }
   });

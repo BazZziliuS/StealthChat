@@ -22,14 +22,26 @@
   const btnImport = document.getElementById('btn-import');
   const btnResetAll = document.getElementById('btn-reset-all');
   const importFile = document.getElementById('import-file');
+  const langSelect = document.getElementById('lang-select');
 
   let currentTab = null;
   let currentSession = null;
   let sessionsForUrl = [];
 
+  // --- Security: HTML escape ---
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
   // --- Init ---
 
   async function init() {
+    // Load language setting first
+    await loadLanguageSetting();
+    applyTranslations();
+
     currentTab = await getCurrentTab();
     if (!currentTab?.url) {
       showState('none');
@@ -54,7 +66,77 @@
     setupEventListeners();
   }
 
+  // --- Language ---
+
+  async function loadLanguageSetting() {
+    const data = await new Promise(resolve => {
+      chrome.storage.local.get('settings', result => resolve(result.settings));
+    });
+    const lang = data?.language || 'en';
+    SCI18n.setLanguage(lang);
+    SC_SET_ENCODING_LANG(lang);
+    langSelect.value = lang;
+  }
+
+  async function changeLanguage(lang) {
+    SCI18n.setLanguage(lang);
+    SC_SET_ENCODING_LANG(lang);
+
+    // Save to storage
+    const settings = await new Promise(resolve => {
+      chrome.storage.local.get('settings', result => resolve(result.settings || {}));
+    });
+    settings.language = lang;
+    await new Promise(resolve => {
+      chrome.storage.local.set({ settings }, resolve);
+    });
+
+    // Notify background about language change
+    await sendBackground({ action: 'setLanguage', language: lang });
+
+    applyTranslations();
+
+    // Re-render dynamic content
+    if (currentSession) {
+      showState('active');
+    }
+    await loadSessionsList();
+  }
+
+  function applyTranslations() {
+    const t = SCI18n.t;
+
+    // Status
+    if (statusText.textContent === 'Checking...' || statusText.textContent === 'Проверка...') {
+      statusText.textContent = t('status.checking');
+    }
+
+    // Buttons
+    btnStart.textContent = t('btn.start');
+    btnRotate.textContent = t('btn.rotate');
+    btnReset.textContent = t('btn.reset');
+    btnExport.textContent = t('btn.export');
+    btnImport.textContent = t('btn.import');
+    btnResetAll.textContent = t('btn.resetAll');
+
+    // Sections
+    document.getElementById('no-session-hint').textContent = t('session.noSession');
+    document.getElementById('pending-text').textContent = t('session.pending');
+    document.getElementById('pending-hint').textContent = t('session.pendingHint');
+    document.getElementById('sessions-title').textContent = t('section.sessions');
+    document.getElementById('hotkey-hint').innerHTML = t('session.hotkey');
+
+    // Fingerprint
+    document.getElementById('fp-label').textContent = t('session.fingerprint');
+    document.getElementById('fp-hint-icon').title = t('session.fingerprintHint');
+
+    // Rotate button title
+    btnRotate.title = t('btn.rotate');
+  }
+
   function showState(state) {
+    const t = SCI18n.t;
+
     noSessionSection.classList.add('hidden');
     pendingSection.classList.add('hidden');
     activeSection.classList.add('hidden');
@@ -62,28 +144,27 @@
     switch (state) {
       case 'none':
         statusIndicator.className = 'indicator off';
-        statusText.textContent = 'Not encrypted';
+        statusText.textContent = t('status.notEncrypted');
         noSessionSection.classList.remove('hidden');
         break;
       case 'pending':
         statusIndicator.className = 'indicator pending';
-        statusText.textContent = 'Waiting for peer...';
+        statusText.textContent = t('status.waiting');
         pendingSection.classList.remove('hidden');
         break;
       case 'active':
         statusIndicator.className = 'indicator on';
-        statusText.textContent = 'Encryption active';
+        statusText.textContent = t('status.active');
         activeSection.classList.remove('hidden');
         if (currentSession) {
-          sessionLabel.textContent = currentSession.label || 'Encrypted session';
+          sessionLabel.textContent = currentSession.label || t('session.encrypted');
           toggleSession.checked = currentSession.enabled;
           loadFingerprint(currentSession.sessionId);
 
-          // Show session selector if multiple sessions match this URL
           if (sessionsForUrl.length > 1) {
             sessionSelector.classList.remove('hidden');
             sessionSelect.innerHTML = sessionsForUrl.map(s =>
-              `<option value="${s.sessionId}" ${s.sessionId === currentSession.sessionId ? 'selected' : ''}>${s.label || s.sessionId} ${s.enabled ? '' : '(off)'}</option>`
+              `<option value="${esc(s.sessionId)}" ${s.sessionId === currentSession.sessionId ? 'selected' : ''}>${esc(s.label || s.sessionId)} ${s.enabled ? '' : '(off)'}</option>`
             ).join('');
           } else {
             sessionSelector.classList.add('hidden');
@@ -105,13 +186,15 @@
     btnImport.addEventListener('click', () => importFile.click());
     btnResetAll.addEventListener('click', resetAllKeys);
     importFile.addEventListener('change', importSessions);
+    langSelect.addEventListener('change', () => changeLanguage(langSelect.value));
   }
 
   async function startKeyExchange() {
     if (!currentTab?.url) return;
+    const t = SCI18n.t;
 
     btnStart.disabled = true;
-    btnStart.textContent = 'Generating...';
+    btnStart.textContent = t('btn.generating');
 
     try {
       const response = await sendBackground({
@@ -122,19 +205,19 @@
       if (response?.encoded) {
         await navigator.clipboard.writeText(response.encoded);
         showState('pending');
-        btnStart.textContent = 'Start Encryption';
+        btnStart.textContent = t('btn.start');
         btnStart.disabled = false;
       }
     } catch (err) {
       console.error('[StealthChat] Key exchange error:', err);
-      btnStart.textContent = 'Start Encryption';
+      btnStart.textContent = t('btn.start');
       btnStart.disabled = false;
     }
   }
 
   async function resetSession() {
     if (!currentSession) return;
-    if (!confirm('Reset encryption keys for this session?\nOld messages will not be decryptable.')) return;
+    if (!confirm(SCI18n.t('confirm.reset'))) return;
 
     await sendBackground({
       action: 'deleteSession',
@@ -169,7 +252,7 @@
     if (!selected) return;
 
     currentSession = selected;
-    sessionLabel.textContent = selected.label || 'Encrypted session';
+    sessionLabel.textContent = selected.label || SCI18n.t('session.encrypted');
     toggleSession.checked = selected.enabled;
     await loadFingerprint(selected.sessionId);
     notifyContentScript('sessionUpdated');
@@ -178,21 +261,20 @@
   // --- Fingerprint ---
 
   async function loadFingerprint(sessionId) {
-    fingerprintGrid.innerHTML = '<div class="fp-cell" style="grid-column:1/-1;color:#555">loading...</div>';
+    const t = SCI18n.t;
+    fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:#555">${t('fp.loading')}</div>`;
     try {
       const result = await sendBackground({ action: 'getFingerprint', sessionId });
       if (result?.fingerprint) {
-        // fingerprint is "a3b5 c7d9 e1f2 0a4b 8c3e 7f1d 2b9a 5e0c" — 8 groups of 4 hex
-        // Render as 4×2 grid (8 cells, 4 per row)
         const groups = result.fingerprint.split(' ');
         fingerprintGrid.innerHTML = groups
           .map(g => `<div class="fp-cell">${g}</div>`)
           .join('');
       } else {
-        fingerprintGrid.innerHTML = '<div class="fp-cell" style="grid-column:1/-1;color:#555">unavailable</div>';
+        fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:#555">${t('fp.unavailable')}</div>`;
       }
     } catch {
-      fingerprintGrid.innerHTML = '<div class="fp-cell" style="grid-column:1/-1;color:#ff6b7a">error</div>';
+      fingerprintGrid.innerHTML = `<div class="fp-cell" style="grid-column:1/-1;color:#ff6b7a">${t('fp.error')}</div>`;
     }
   }
 
@@ -200,10 +282,11 @@
 
   async function rotateKey() {
     if (!currentSession) return;
-    if (!confirm('Rotate encryption key?\nBoth you and your contact must rotate at the same time.\nOld messages stay readable (last 5 keys kept).')) return;
+    if (!confirm(SCI18n.t('confirm.rotate'))) return;
+    const t = SCI18n.t;
 
     btnRotate.disabled = true;
-    btnRotate.textContent = 'Rotating...';
+    btnRotate.textContent = t('btn.rotating');
 
     try {
       const result = await sendBackground({
@@ -216,8 +299,8 @@
         await loadFingerprint(result.newSessionId);
         await loadSessionsList();
         notifyContentScript('sessionUpdated');
-        btnRotate.textContent = `Rotated (#${result.rotationCounter})`;
-        setTimeout(() => { btnRotate.textContent = 'Rotate Key'; }, 2000);
+        btnRotate.textContent = `${t('btn.rotated')} (#${result.rotationCounter})`;
+        setTimeout(() => { btnRotate.textContent = t('btn.rotate'); }, 2000);
       }
     } catch (err) {
       console.error('[StealthChat] Key rotation error:', err);
@@ -229,19 +312,20 @@
   // --- Sessions list ---
 
   async function loadSessionsList() {
+    const t = SCI18n.t;
     const response = await sendBackground({ action: 'listSessions' });
     const sessions = response?.sessions || [];
 
     if (sessions.length === 0) {
-      sessionsList.innerHTML = '<p class="empty-state">No sessions yet</p>';
+      sessionsList.innerHTML = `<p class="empty-state">${t('session.none')}</p>`;
       return;
     }
 
     sessionsList.innerHTML = sessions.map(s => `
-      <div class="session-item" data-id="${s.sessionId}">
+      <div class="session-item" data-id="${esc(s.sessionId)}">
         <div class="session-item-status ${s.enabled ? 'active' : 'disabled'}"></div>
-        <span class="session-item-label" title="${s.urlPattern || ''}${s.rotationCounter ? ' | rotations: ' + s.rotationCounter : ''}">${s.label || s.sessionId}</span>
-        <button class="session-item-delete" data-id="${s.sessionId}" title="Delete">&times;</button>
+        <span class="session-item-label" title="${esc(s.urlPattern || '')}${s.rotationCounter ? ' | ' + t('session.rotations') + ': ' + s.rotationCounter : ''}">${esc(s.label || s.sessionId)}</span>
+        <button class="session-item-delete" data-id="${esc(s.sessionId)}" title="Delete">&times;</button>
       </div>
     `).join('');
 
@@ -249,7 +333,7 @@
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = btn.dataset.id;
-        if (confirm('Delete this session?')) {
+        if (confirm(t('confirm.delete'))) {
           await sendBackground({ action: 'deleteSession', sessionId: id });
           if (currentSession?.sessionId === id) {
             currentSession = null;
@@ -265,7 +349,7 @@
   // --- Reset All ---
 
   async function resetAllKeys() {
-    if (!confirm('Delete ALL sessions and keys? This cannot be undone.\nOld messages will not be decryptable.')) return;
+    if (!confirm(SCI18n.t('confirm.resetAll'))) return;
 
     await sendBackground({ action: 'resetAll' });
     currentSession = null;

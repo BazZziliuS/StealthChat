@@ -14,7 +14,13 @@
         <span class="logo-icon">🔒</span>
         <h1>StealthChat</h1>
       </div>
-      <span class="version">v1.0</span>
+      <div class="header-right">
+        <select id="lang-select" class="lang-select" title="Language">
+          <option value="en">EN</option>
+          <option value="ru">RU</option>
+        </select>
+        <span class="version">v1.1</span>
+      </div>
     </header>
 
     <!-- Current page status -->
@@ -27,7 +33,7 @@
 
     <!-- No session state -->
     <section id="no-session" class="section hidden">
-      <p class="hint">No encryption session for this page.</p>
+      <p class="hint" id="no-session-hint">No encryption session for this page.</p>
       <button id="btn-start" class="btn btn-primary">
         Start Encryption
       </button>
@@ -37,9 +43,9 @@
     <section id="pending-exchange" class="section hidden">
       <div class="pending-status">
         <div class="spinner"></div>
-        <p>Waiting for peer's key...</p>
+        <p id="pending-text">Waiting for peer's key...</p>
       </div>
-      <p class="hint">Paste the encoded key into the chat and send it to your contact.</p>
+      <p class="hint" id="pending-hint">Paste the encoded key into the chat and send it to your contact.</p>
     </section>
 
     <!-- Active session -->
@@ -60,8 +66,8 @@
       <!-- Fingerprint verification -->
       <div id="fingerprint-section" class="fingerprint-section">
         <div class="fingerprint-header">
-          <span class="fingerprint-label">Fingerprint</span>
-          <span class="fingerprint-hint-icon" title="Compare this grid with your contact over a different channel (call, in person) to verify nobody intercepted the key exchange.">?</span>
+          <span class="fingerprint-label" id="fp-label">Fingerprint</span>
+          <span class="fingerprint-hint-icon" id="fp-hint-icon" title="Compare this grid with your contact over a different channel (call, in person) to verify nobody intercepted the key exchange.">?</span>
         </div>
         <div id="fingerprint-grid" class="fingerprint-grid">
           <!-- 4×4 grid filled by JS -->
@@ -72,14 +78,14 @@
         <button id="btn-rotate" class="btn btn-ghost btn-sm" title="Rotate encryption key for forward secrecy">Rotate Key</button>
         <button id="btn-reset" class="btn btn-danger btn-sm">Reset Keys</button>
       </div>
-      <p class="hint hint-keys">Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to encrypt. Click 🔒 to view ciphertext.</p>
+      <p class="hint hint-keys" id="hotkey-hint">Press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to encrypt. Click 🔒 to view ciphertext.</p>
     </section>
 
     <!-- Sessions list -->
     <section class="section">
-      <h2 class="section-title">Sessions</h2>
+      <h2 class="section-title" id="sessions-title">Sessions</h2>
       <div id="sessions-list" class="sessions-list">
-        <p class="empty-state">No sessions yet</p>
+        <p class="empty-state" id="empty-sessions">No sessions yet</p>
       </div>
     </section>
 
@@ -93,6 +99,7 @@
 
   <input type="file" id="import-file" accept=".json" class="hidden">
 
+  <script src="../lib/i18n.js"></script>
   <script src="../lib/wordlist.js"></script>
   <script src="../lib/encoder.js"></script>
   <script src="../lib/protocol.js"></script>
