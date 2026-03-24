@@ -2,7 +2,7 @@
 
 **End-to-end encryption for any web messenger — messages look like ordinary sentences in your chosen language.**
 
-StealthChat is a Chrome extension that encrypts your messages before sending and decrypts incoming messages automatically. Instead of gibberish ciphertext, encrypted messages appear as natural sentences in English, Russian, Ukrainian, or German — invisible to platforms, servers, and anyone without the extension.
+StealthChat is a Chrome extension that encrypts your messages before sending and decrypts incoming messages automatically. Instead of gibberish ciphertext, encrypted messages appear as natural sentences in 7 languages — invisible to platforms, servers, and anyone without the extension.
 
 ---
 
@@ -11,11 +11,11 @@ StealthChat is a Chrome extension that encrypts your messages before sending and
 ```
 You type:          "Meet me at 5 near the subway"
 
-What gets sent     "Alice slowly brought a neat desert along December.
-(English):          Grace happily entered every calm ocean beyond Friday."
+What gets sent     "Alice bravely arranged several ancient anchor despite morning.
+(English):          Quinn calmly blocked both bitter beacon during evening."
 
-What gets sent     "Алиса медленно принес этот яркий мост через понедельник.
-(Russian):          Жанна весело нашел каждый чистый дворец среди пятница."
+What gets sent     "Алиса твердо описал этих древний бухта вместо февраль.
+(Russian):          Антон глубоко закрыл других горький каньон помимо май."
 
 What your contact
 with StealthChat
@@ -36,7 +36,7 @@ No markers. No tags. No suspicious characters. Just regular sentences.
 │                                                                  │
 │  ┌─────────┐    Ctrl+Enter    ┌──────────┐    encoded text      │
 │  │  Your   │ ──────────────►  │ StealthChat│ ──────────────►  📤│
-│  │  Text   │                  │ Extension │                     │
+│  │  Text   │  (toggle undo)   │ Extension │                     │
 │  └─────────┘                  └──────────┘                      │
 │                                                                  │
 │  ┌─────────┐    decrypted     ┌──────────┐    encoded text      │
@@ -60,52 +60,48 @@ No markers. No tags. No suspicious characters. Just regular sentences.
        │
        ▼
   ┌─────────────┐
-  │  Compress   │  UTF-8 → deflate
-  │  (pako)     │
+  │  Compress   │  deflate-raw (built-in CompressionStream)
+  │             │  only if it shrinks the data
   └──────┬──────┘
          ▼
   ┌─────────────┐
-  │  Encrypt    │  AES-256-GCM
+  │  Encrypt    │  AES-256-GCM (8-byte auth tag)
   │             │  + random 12-byte IV
   └──────┬──────┘
          ▼
   ┌─────────────┐
-  │  Package    │  version + type + session ID + IV + ciphertext
-  │  (protocol) │
+  │  Package    │  version + flags + session ID + IV + ciphertext
+  │  (proto v2) │  compact 16-byte header
   └──────┬──────┘
          ▼
   ┌─────────────┐
-  │  Encode     │  bytes → sentences (EN / RU / UK / DE)
-  │  (wordlist) │  4 bits per word, 8 words per sentence
+  │  Encode     │  bytes → sentences (7 languages)
+  │  (wordlist) │  5 bits per word, 8 words per sentence
   └──────┬──────┘
          ▼
-  "Alice slowly brought the dark clinic behind Thursday.
-   Emma carefully caught a bright garden above Monday."
+  "Alice bravely arranged several ancient anchor despite morning.
+   Quinn calmly blocked both bitter beacon during evening."
 ```
 
 ### Sentence Encoding
 
-Each byte of encrypted data is split into two 4-bit nibbles. Each nibble selects a word from a specific category:
-
-```
-Byte: 0xA3 = 1010 0011
-
-     High nibble: 1010 = 10 ──► adjectives[10] = "neat" (EN) / "чистый" (RU)
-     Low nibble:  0011 =  3 ──► nouns[3]       = "desert" (EN) / "лес" (RU)
-```
+Bytes are packed into a 40-bit stream, then split into 8 groups of 5 bits. Each 5-bit value (0–31) selects a word from a category of 32 words:
 
 **Sentence template:** `Name adverb verb article adjective noun preposition time.`
 
-Each language has its own 128-word dictionary (8 categories × 16 words):
+7 supported languages, each with 256 words (8 categories × 32 words):
 
-| Language | Example sentence |
-|----------|-----------------|
-| English  | Alice slowly brought a neat desert along December. |
-| Russian  | Алиса медленно принес этот яркий мост через понедельник. |
-| Ukrainian| Оксана повільно приніс цей яскравий міст через понеділок. |
-| German   | Annika langsam brachte der hell Brücke über Montag. |
+| Language | Code | Example |
+|----------|------|---------|
+| English | EN | Alice bravely arranged several ancient anchor despite morning. |
+| Russian | RU | Алиса твердо описал этих древний бухта вместо февраль. |
+| Ukrainian | UK | Оксана твердо описав цих давній якір замість лютий. |
+| German | DE | Annika tapfer ordnete diese antik Anker während Februar. |
+| Belarusian | BE | Янка моцна апісаў гэтых старажытны якар замест люты. |
+| Persian | FA | دارا محکم نوشت اینها باستانی لنگر بجای اردیبهشت. |
+| Kazakh | KK | Айгүл берік сипаттады бұлар ежелгі зәкір орнына ақпан. |
 
-**→ One sentence = 8 words = 32 bits = 4 bytes of data**
+**One sentence = 8 words = 40 bits = 5 bytes of data**
 
 Decoding auto-detects the language by checking the first word — a message encoded in Russian will be correctly decoded regardless of the receiver's language setting.
 
@@ -117,15 +113,15 @@ Decoding auto-detects the language by checking the first word — a message enco
        │  1. Generate ECDH key pair             │
        │  2. Encode public key as sentences     │
        │                                        │
-       │──── "Carol eagerly delivered..." ────► │
+       │──── encoded sentences (14 sentences) ──►│
        │     (contains Alice's public key)      │
        │                                        │
        │                          3. Generate ECDH key pair
        │                          4. Compute shared secret
        │                          5. Encode public key
        │                                        │
-       │ ◄─── "David kindly fetched..." ────────│
-       │      (contains Bob's public key)       │
+       │◄── encoded sentences (14 sentences) ────│
+       │    (contains Bob's public key)         │
        │                                        │
        │  6. Compute same shared secret         │
        │  7. Derive AES-256 key (HKDF)         │
@@ -141,38 +137,11 @@ Decoding auto-detects the language by checking the first word — a message enco
 
 ### Chrome / Edge / Brave (any Chromium browser)
 
-**Step 1 — Download the extension**
-
-```bash
-git clone https://github.com/user/StealthChat.git
-```
-
-Or click **Code → Download ZIP** on GitHub and unzip anywhere on your computer.
-
-**Step 2 — Open the extensions page**
-
-| Browser | Address |
-|---------|---------|
-| Chrome  | `chrome://extensions/` |
-| Edge    | `edge://extensions/` |
-| Brave   | `brave://extensions/` |
-
-**Step 3 — Enable Developer Mode**
-
-Toggle the **Developer mode** switch in the top-right corner of the page.
-
-**Step 4 — Load the extension**
-
-1. Click **"Load unpacked"**
-2. Navigate to the downloaded repository
-3. Select the **`extension/`** folder (not the root folder)
-4. Click **"Select Folder"**
-
-**Step 5 — Pin to toolbar**
-
-1. Click the puzzle icon (🧩) in the browser toolbar
-2. Find **StealthChat** in the list
-3. Click the **pin icon** (📌) to keep it visible
+1. Download: `git clone` or **Code → Download ZIP**
+2. Open `chrome://extensions/` (or `edge://extensions/`, `brave://extensions/`)
+3. Enable **Developer mode**
+4. Click **"Load unpacked"** → select the **`extension/`** folder
+5. Pin to toolbar (🧩 → 📌)
 
 > **Note:** Both you and your contact need to install the extension.
 
@@ -181,7 +150,7 @@ Toggle the **Developer mode** switch in the top-right corner of the page.
 ### Step 1 — Choose Language & Set Up Encryption
 
 1. Click the **StealthChat** icon (🔒) in the toolbar
-2. Select your preferred language (**EN / RU / UK / DE**) — this determines what language the encoded sentences will be in
+2. Select your preferred language (**EN / RU / UK / DE / BE / FA / KK**)
 3. Click **"Start Encryption"**
 4. The encoded public key is automatically copied to your clipboard (cleared after 30 seconds)
 5. Paste it into the chat and send
@@ -193,7 +162,8 @@ Toggle the **Developer mode** switch in the top-right corner of the page.
 
 1. Type your message in the chat's input field as usual
 2. Press **Ctrl+Enter** — your text is replaced with encoded sentences
-3. Send the message normally (Enter, click Send, etc.)
+3. Changed your mind? Press **Ctrl+Enter** again to restore the original text
+4. Send the message normally (Enter, click Send, etc.)
 
 ### Step 3 — Receive Messages
 
@@ -205,7 +175,7 @@ Click the StealthChat icon to see:
 - **Current page status** — encrypted or not
 - **Toggle** — turn encryption on/off for this page
 - **Theme** — switch between dark and light themes (☀/🌙)
-- **Language selector** — EN, RU, UK, DE
+- **Language selector** — EN, RU, UK, DE, BE, FA, KK
 - **Session selector** — switch between multiple sessions on the same page
 - **Sessions list** — all active encrypted sessions
 - **Export/Import** — backup and restore your keys
@@ -217,13 +187,13 @@ After setting up encryption, both you and your contact see a **fingerprint** —
 
 ### Viewing Original Ciphertext
 
-Click on any decrypted message (or the 🔒 icon) to toggle between the decrypted text and the original encoded sentences. The icon changes to 🔓 while showing ciphertext. Click again to switch back.
+Click on any decrypted message (or the 🔒 icon) to toggle between the decrypted text and the original encoded sentences. The icon changes to 🔓 while showing ciphertext.
 
 ### Key Rotation (Forward Secrecy)
 
-Click **"Rotate Key"** in the popup to derive a new encryption key from the current one. This provides forward secrecy — if a future key is compromised, past messages remain safe.
-
-- Both users must rotate at the same time
+- **Automatic**: keys rotate every 50 messages for forward secrecy
+- **Manual**: click **"Rotate Key"** in the popup to rotate immediately
+- Both users must have compatible key states
 - Last 5 old keys are kept so old messages stay readable
 - The fingerprint changes after rotation — verify again with your contact
 
@@ -236,11 +206,12 @@ Click **"Rotate Key"** in the popup to derive a new encryption key from the curr
 | Key exchange | ECDH P-256 (Web Crypto API) |
 | Key derivation | HKDF-SHA256 |
 | Encryption | AES-256-GCM |
-| Message integrity | GCM auth tag (16 bytes) |
+| Message integrity | GCM auth tag (8 bytes / 64 bits) |
 | IV/Nonce | 12 bytes, cryptographically random |
-| Forward secrecy | HKDF-ratchet key rotation (manual) |
+| Compression | Built-in deflate-raw (CompressionStream API) |
+| Forward secrecy | Auto-rotation every 50 messages + manual HKDF-ratchet |
 | Fingerprint | SHA-256 of symmetric key, first 16 bytes |
-| Crypto library | Web Crypto API only — no third-party crypto |
+| Crypto library | Web Crypto API only — zero third-party dependencies |
 | XSS protection | HTML escaping + DOM API for user data |
 | Import validation | Schema validation, prototype pollution protection |
 | Clipboard | Auto-cleared 30 seconds after key copy |
@@ -250,8 +221,8 @@ Click **"Rotate Key"** in the popup to derive a new encryption key from the curr
 - Platform reading your messages (E2E encrypted)
 - Message tampering (AES-GCM auth tag)
 - Replay attacks (unique IV per message)
-- Pattern detection (messages look like normal text)
-- Future key compromise revealing past messages (key rotation / PFS)
+- Pattern detection (messages look like normal text in 7 languages)
+- Future key compromise revealing past messages (auto key rotation / PFS)
 
 ### What StealthChat does NOT protect against
 
@@ -267,42 +238,45 @@ Click **"Rotate Key"** in the popup to derive a new encryption key from the curr
 extension/
 ├── manifest.json           # Chrome Extension Manifest V3
 ├── background/
-│   └── background.js       # Service Worker — crypto, key management
+│   └── background.js       # Service Worker — crypto, key management, auto-rotation
 ├── content/
-│   ├── content.js          # Injected into pages — DOM scanning, hotkey
+│   ├── content.js          # DOM scanning, Ctrl+Enter toggle, key exchange
 │   └── content.css         # Lock icon, notification styles
 ├── popup/
 │   ├── popup.html          # Extension popup UI
-│   ├── popup.css           # Dark/light theme styles (CSS variables)
-│   └── popup.js            # Popup logic
+│   ├── popup.css           # Dark/light theme (CSS variables)
+│   └── popup.js            # Popup logic, i18n, theme toggle
 ├── lib/
-│   ├── i18n.js             # Translations (EN, RU, UK, DE)
-│   ├── wordlist.js         # Multi-language dictionaries (4 × 128 words)
-│   ├── encoder.js          # Bytes ↔ sentences (auto-detect language on decode)
-│   ├── protocol.js         # Binary packet format
-│   └── crypto.js           # ECDH, HKDF, AES-GCM operations
-├── test-chat.html          # Two-panel test chat for local testing
+│   ├── i18n.js             # UI translations (7 languages)
+│   ├── wordlist.js         # Steganographic dictionaries (7 × 256 words)
+│   ├── encoder.js          # 5-bit encoding: bytes ↔ sentences
+│   ├── protocol.js         # Binary protocol v2 (compact)
+│   └── crypto.js           # ECDH, HKDF, AES-GCM, compression
+├── test-chat.html          # Two-panel test chat
 └── icons/
     └── ...
 ```
 
 ---
 
-## Binary Protocol
+## Binary Protocol v2
 
-Every message has this structure:
+Every encrypted message has this structure:
 
 ```
-┌─────────┬──────┬────────────┬────────────┬──────────────────────┐
-│ Version │ Type │ Session ID │     IV     │    Ciphertext        │
-│ 1 byte  │1 byte│  4 bytes   │  12 bytes  │    N bytes           │
-│  0x01   │      │            │            │  (includes auth tag) │
-└─────────┴──────┴────────────┴────────────┴──────────────────────┘
+┌─────────┬───────┬────────────┬────────────┬──────────────────────┐
+│ Version │ Flags │ Session ID │     IV     │    Ciphertext        │
+│ 1 byte  │1 byte │  2 bytes   │  12 bytes  │    N bytes           │
+│  0x02   │       │            │            │  (includes 8B tag)   │
+└─────────┴───────┴────────────┴────────────┴──────────────────────┘
 
+Flags byte: bit 7 = compressed, bits 0-3 = type
 Type: 0x01 = encrypted text
       0x02 = key exchange request
       0x03 = key exchange response
 ```
+
+Compact header: 16 bytes (vs 18 in v1). 8-byte auth tag (vs 16 in v1).
 
 ---
 
